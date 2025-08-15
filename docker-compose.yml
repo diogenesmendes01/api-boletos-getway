@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  postgres-olympia:
+    image: postgres:15-alpine
+    container_name: postgres-olympia
+    environment:
+      POSTGRES_USER: olympia_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: imports_olympia
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - olympia-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U olympia_app"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-olympia:
+    image: redis:7-alpine
+    container_name: redis-olympia
+    networks:
+      - olympia-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-olympia:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-olympia
+    environment:
+      NODE_ENV: production
+      API_PORT: 8080
+      API_BASE_URL: https://envio-boleto.olympiabank.xyz
+      API_TOKEN_ISSUER: internal
+      CLIENT_API_KEYS: ${CLIENT_API_KEYS}
+      REDIS_URL: redis://redis-olympia:6379
+      POSTGRES_URL: postgres://olympia_app:${POSTGRES_PASSWORD}@postgres-olympia:5432/imports_olympia
+      OLYMPIA_BASE_URL: https://api.olympiabank.net
+      OLYMPIA_TOKEN: ${OLYMPIA_TOKEN}
+      MAX_CONCURRENCY: 12
+      MAX_RETRIES: 5
+      FILE_RETENTION_DAYS: 7
+      CORS_ORIGINS: https://envio-boleto.olympiabank.xyz
+    depends_on:
+      postgres-olympia:
+        condition: service_healthy
+      redis-olympia:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - olympia-network
+    command: ["sh", "-c", "npm run typeorm migration:run && npm run start:prod"]
+
+  worker-olympia:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: worker-olympia
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis-olympia:6379
+      POSTGRES_URL: postgres://olympia_app:${POSTGRES_PASSWORD}@postgres-olympia:5432/imports_olympia
+      OLYMPIA_BASE_URL: https://api.olympiabank.net
+      OLYMPIA_TOKEN: ${OLYMPIA_TOKEN}
+      MAX_CONCURRENCY: 12
+      MAX_RETRIES: 5
+    depends_on:
+      postgres-olympia:
+        condition: service_healthy
+      redis-olympia:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - olympia-network
+    command: ["npm", "run", "start:worker"]
+
+networks:
+  olympia-network:
+    driver: bridge
+    external: true
+
+volumes:
+  postgres_data:
