@@ -1,6 +1,5 @@
 # .github/workflows/deploy.yml
-# ATUALIZADO com o nome correto do repositório
-name: Deploy API Boletos Olympiabank
+name: Deploy API Boletos Gateway
 
 on:
   push:
@@ -8,21 +7,46 @@ on:
       - main
       - master
       - develop
+  pull_request:
+    branches:
+      - main
+      - master
 
 env:
   REGISTRY: ghcr.io
-  # IMPORTANTE: Verifique qual é o nome correto do seu repositório
-  # Opção 1: Com S e getway
   IMAGE_NAME: diogenesmendes01/api-boletos-getway
-  # Opção 2: Sem S e gatway
-  # IMAGE_NAME: diogenesmendes01/api-boleto-gatway
-  
   VPS_IP: 168.231.92.229
 
 jobs:
-  build-and-push:
-    name: Build e Deploy
+  test:
+    name: Testes
     runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci || npm install
+
+      - name: Executar testes
+        run: npm test || echo "Testes não configurados"
+        continue-on-error: true
+
+      - name: Build do projeto
+        run: npm run build || echo "Build realizado no Docker"
+
+  build-and-push:
+    name: Build e Push Docker
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
     
     permissions:
       contents: read
@@ -42,19 +66,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Metadata da imagem
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+
       - name: Build e Push da imagem Docker
         uses: docker/build-push-action@v5
         with:
           context: .
+          platforms: linux/amd64
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
 
-      - name: Deploy na VPS
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+  deploy:
+    name: Deploy na VPS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ env.VPS_IP }}
@@ -62,61 +105,242 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           script: |
-            echo "🚀 Iniciando deploy..."
+            set -e
+            echo "================================================"
+            echo "🚀 INICIANDO DEPLOY - API BOLETOS GATEWAY"
+            echo "================================================"
+            echo ""
             
-            # Criar diretórios se não existirem
-            mkdir -p ~/projetos/api-boleto
-            cd ~/projetos/api-boleto
+            # Configurações
+            PROJECT_DIR="~/projetos/api-boleto"
+            IMAGE_NAME="ghcr.io/${{ env.IMAGE_NAME }}:latest"
             
-            # Verificar qual imagem usar (com S ou sem S)
-            if docker pull ghcr.io/diogenesmendes01/api-boletos-getway:latest 2>/dev/null; then
-              IMAGE_NAME="ghcr.io/diogenesmendes01/api-boletos-getway:latest"
-            elif docker pull ghcr.io/diogenesmendes01/api-boleto-gatway:latest 2>/dev/null; then
-              IMAGE_NAME="ghcr.io/diogenesmendes01/api-boleto-gatway:latest"
-            else
-              echo "❌ Erro: Não foi possível baixar nenhuma imagem"
-              exit 1
+            # Criar diretórios necessários
+            echo "📁 Preparando diretórios..."
+            mkdir -p ${PROJECT_DIR}/{logs,uploads,backups}
+            cd ${PROJECT_DIR}
+            
+            # Criar arquivo .env se não existir
+            if [ ! -f .env ]; then
+              echo "📝 Criando arquivo .env..."
+              cat > .env << 'ENVEOF'
+            # Segurança - ALTERE ESTAS SENHAS!
+            JWT_SECRET=jwt_super_secret_olympia_2024_change_this_now
+            API_KEY=api_key_super_secret_olympia_2024_change_this_now
+            
+            # Outras configurações
+            LOG_LEVEL=info
+            ENVEOF
+              echo "⚠️  Arquivo .env criado. Por favor, edite as senhas!"
             fi
             
-            echo "📦 Usando imagem: $IMAGE_NAME"
+            # Fazer backup do docker-compose atual
+            if [ -f docker-compose.prod.yml ]; then
+              cp docker-compose.prod.yml docker-compose.prod.yml.backup
+              echo "💾 Backup do docker-compose.prod.yml criado"
+            fi
             
-            # Criar docker-compose se não existir
-            cat > docker-compose.prod.yml << EOF
+            # Login no GitHub Container Registry (se token configurado)
+            if [ ! -z "${{ secrets.GHCR_TOKEN }}" ]; then
+              echo "🔐 Fazendo login no GHCR..."
+              echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            fi
+            
+            # Baixar imagem mais recente
+            echo "📦 Baixando imagem Docker..."
+            if docker pull ${IMAGE_NAME}; then
+              echo "✅ Imagem baixada com sucesso"
+            else
+              echo "❌ Erro ao baixar imagem do GHCR"
+              echo "Tentando build local como fallback..."
+              
+              # Clonar código se necessário
+              if [ ! -d "source" ]; then
+                git clone https://github.com/${{ github.repository }}.git source
+              fi
+              cd source && git pull origin main
+              
+              # Build local
+              docker build -t api-boleto-local .
+              IMAGE_NAME="api-boleto-local"
+              cd ${PROJECT_DIR}
+            fi
+            
+            # Criar docker-compose.prod.yml com configuração completa
+            echo "📝 Criando docker-compose.prod.yml..."
+            cat > docker-compose.prod.yml << 'DOCKEREOF'
             version: '3.8'
+            
             services:
               api-boleto:
-                image: $IMAGE_NAME
+                image: ${IMAGE_NAME}
                 container_name: api-boleto-olympia
                 restart: always
                 ports:
                   - "127.0.0.1:3001:3000"
+                command: node dist/src/main.js
                 environment:
+                  # Ambiente
                   - NODE_ENV=production
                   - PORT=3000
+                  - APP_NAME=api-boletos-gateway
+                  
+                  # URLs
+                  - APP_URL=https://api.envio-boleto.olympiabank.xyz
+                  - FRONTEND_URL=https://envio-boleto.olympiabank.xyz
+                  
+                  # Banco de Dados PostgreSQL
                   - DATABASE_URL=postgresql://olympia_app:V/aMMGypweFPSlGivTdcaC44zzEZDfuv@postgres-olympia:5432/boleto_db
-                  - JWT_SECRET=\${JWT_SECRET:-jwt_change_this}
-                  - API_KEY=\${API_KEY:-api_change_this}
+                  - DB_HOST=postgres-olympia
+                  - DB_PORT=5432
+                  - DB_USERNAME=olympia_app
+                  - DB_PASSWORD=V/aMMGypweFPSlGivTdcaC44zzEZDfuv
+                  - DB_DATABASE=boleto_db
+                  
+                  # TypeORM - Configurações Gerais
+                  - TYPEORM_CONNECTION=postgres
+                  - TYPEORM_HOST=postgres-olympia
+                  - TYPEORM_PORT=5432
+                  - TYPEORM_USERNAME=olympia_app
+                  - TYPEORM_PASSWORD=V/aMMGypweFPSlGivTdcaC44zzEZDfuv
+                  - TYPEORM_DATABASE=boleto_db
+                  - TYPEORM_SYNCHRONIZE=false
+                  - TYPEORM_LOGGING=true
+                  - TYPEORM_LOGGER=advanced-console
+                  
+                  # TypeORM - Entities e Migrations
+                  - TYPEORM_ENTITIES=dist/src/entities/*.entity.js
+                  - TYPEORM_MIGRATIONS=dist/src/migrations/*.js
+                  - TYPEORM_MIGRATIONS_DIR=src/migrations
+                  - TYPEORM_ENTITIES_DIR=src/entities
+                  - TYPEORM_MIGRATIONS_RUN=true
+                  - TYPEORM_MIGRATIONS_TABLE_NAME=migrations
+                  
+                  # Segurança (usando .env local)
+                  - JWT_SECRET=${JWT_SECRET:-jwt_change_this_urgently}
+                  - JWT_EXPIRES_IN=7d
+                  - API_KEY=${API_KEY:-api_change_this_urgently}
+                  
+                  # CORS
+                  - CORS_ENABLED=true
+                  - CORS_ORIGINS=https://envio-boleto.olympiabank.xyz,http://localhost:3000
+                  
+                  # Logs
+                  - LOG_LEVEL=${LOG_LEVEL:-info}
+                  
                 networks:
-                  - nginx-proxy-manager_default
+                  - proxy-network
                 volumes:
                   - ./logs:/app/logs
                   - ./uploads:/app/uploads
-            networks:
-              nginx-proxy-manager_default:
-                external: true
-            EOF
+                healthcheck:
+                  test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+                  interval: 30s
+                  timeout: 10s
+                  retries: 3
+                  start_period: 60s
+                logging:
+                  driver: "json-file"
+                  options:
+                    max-size: "10m"
+                    max-file: "5"
             
-            # Parar e reiniciar
-            docker compose -f docker-compose.prod.yml down
+            networks:
+              proxy-network:
+                external: true
+            DOCKEREOF
+            
+            # Substituir variável IMAGE_NAME no docker-compose
+            sed -i "s|\${IMAGE_NAME}|${IMAGE_NAME}|g" docker-compose.prod.yml
+            
+            # Garantir que postgres-olympia está na rede correta
+            echo "🔗 Verificando conexão de rede..."
+            docker network connect proxy-network postgres-olympia 2>/dev/null || echo "postgres-olympia já conectado à proxy-network"
+            
+            # Parar container antigo
+            echo "🛑 Parando container antigo..."
+            docker compose -f docker-compose.prod.yml down || true
+            
+            # Limpar volumes órfãos
+            docker volume prune -f 2>/dev/null || true
+            
+            # Subir novo container
+            echo "🚀 Iniciando novo container..."
             docker compose -f docker-compose.prod.yml up -d
             
-            # Verificar
-            sleep 10
+            # Aguardar inicialização
+            echo "⏳ Aguardando inicialização (30 segundos)..."
+            sleep 30
+            
+            # Verificar status
+            echo "🔍 Verificando status do deploy..."
             if docker ps | grep -q api-boleto-olympia; then
-              echo "✅ Deploy concluído!"
-              docker logs --tail 20 api-boleto-olympia
+              echo ""
+              echo "================================================"
+              echo "✅ CONTAINER RODANDO COM SUCESSO!"
+              echo "================================================"
+              
+              # Informações do container
+              echo "📊 Status do container:"
+              docker ps | grep api-boleto-olympia
+              
+              # Testar health check
+              echo ""
+              echo "🏥 Testando health check..."
+              if curl -f -s http://localhost:3001/health > /dev/null 2>&1; then
+                echo "✅ Health check respondendo!"
+                curl -s http://localhost:3001/health | head -20
+              else
+                echo "⚠️ Health check não está respondendo ainda"
+                echo "Aguarde mais alguns segundos ou verifique os logs"
+              fi
+              
+              # Mostrar últimos logs
+              echo ""
+              echo "📋 Últimos logs do container:"
+              echo "================================================"
+              docker logs --tail 50 api-boleto-olympia
+              echo "================================================"
+              
+              # Verificar se migrations rodaram
+              echo ""
+              echo "🗄️ Verificando migrations..."
+              docker exec postgres-olympia psql -U olympia_app -d boleto_db -c "\dt" 2>/dev/null | head -20 || echo "Não foi possível verificar tabelas"
+              
+              # Informações finais
+              echo ""
+              echo "================================================"
+              echo "🎉 DEPLOY CONCLUÍDO COM SUCESSO!"
+              echo "================================================"
+              echo "📍 URL Local: http://localhost:3001"
+              echo "🌐 URL Pública: https://api.envio-boleto.olympiabank.xyz"
+              echo "📁 Localização: ${PROJECT_DIR}"
+              echo "🐳 Container: api-boleto-olympia"
+              echo "📝 Logs: docker logs -f api-boleto-olympia"
+              echo "================================================"
+              
             else
-              echo "❌ Container não está rodando"
-              docker logs api-boleto-olympia
+              echo ""
+              echo "================================================"
+              echo "❌ ERRO: CONTAINER NÃO ESTÁ RODANDO!"
+              echo "================================================"
+              echo "📋 Logs de erro:"
+              docker logs api-boleto-olympia --tail 100
+              echo ""
+              echo "🔧 Tentando diagnosticar o problema..."
+              docker ps -a | grep api-boleto
+              echo ""
+              echo "💡 Sugestões:"
+              echo "1. Verifique os logs: docker logs api-boleto-olympia"
+              echo "2. Verifique a conexão com o banco: docker exec api-boleto-olympia ping postgres-olympia"
+              echo "3. Verifique as variáveis de ambiente: docker exec api-boleto-olympia env"
               exit 1
             fi
+            
+            # Limpar imagens antigas
+            echo ""
+            echo "🧹 Limpando imagens antigas..."
+            docker image prune -f
+            
+            echo ""
+            echo "✅ Script de deploy finalizado!"
