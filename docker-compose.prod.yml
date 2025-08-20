@@ -23,7 +23,7 @@ services:
       - CORS_ORIGINS=https://envio-boleto.olympiabank.xyz
       - LOG_LEVEL=info
     networks:
-      - nginx-proxy-manager_default
+      - proxy-network
     volumes:
       - ./logs:/app/logs
       - ./uploads:/app/uploads
@@ -40,5 +40,5 @@ services:
         max-file: "3"
 
 networks:
-  nginx-proxy-manager_default:
+  proxy-network:
     external: true
