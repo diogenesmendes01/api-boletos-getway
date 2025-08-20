@@ -27,12 +27,12 @@ services:
       - TYPEORM_LOGGING=true
       
       # ENTIDADES E MIGRATIONS
-      - TYPEORM_ENTITIES=dist/src/entities/*.js
+      - TYPEORM_ENTITIES=dist/src/entities/*.entity.js
       - TYPEORM_MIGRATIONS=dist/src/migrations/*.js
       - TYPEORM_MIGRATIONS_RUN=true
-      - TYPEORM_MIGRATIONS_DIR=dist/src/migrations
-      - TYPEORM_ENTITIES_DIR=dist/src/entities
-
+      - TYPEORM_MIGRATIONS_DIR=src/migrations
+      - TYPEORM_ENTITIES_DIR=src/entities
+      - TYPEORM_MIGRATIONS_TABLE_NAME=migrations
 
       # Segurança
       - JWT_SECRET=${JWT_SECRET:-jwt_olympia_secret_change_this}
