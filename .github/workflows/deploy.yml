@@ -1,0 +1,106 @@
+name: Deploy API Boleto Gateway
+
+on:
+  push:
+    branches: 
+      - main
+      - master
+      - develop
+  pull_request:
+    branches: 
+      - main
+      - master
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: diogenesmendes01/api-boleto-gatway  # NOME CORRETO!
+
+jobs:
+  build-and-push:
+    name: Build e Deploy
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci || npm install
+
+      - name: Tentar build
+        run: npm run build || echo "Build não configurado"
+        continue-on-error: true
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login no GitHub Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e Push Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ env.IMAGE_NAME }}:latest
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy na VPS
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: 168.231.92.229
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            # Criar pasta se não existir
+            mkdir -p ~/projetos/api-boleto
+            cd ~/projetos/api-boleto
+            
+            # Criar docker-compose se não existir
+            if [ ! -f docker-compose.prod.yml ]; then
+              cat > docker-compose.prod.yml << 'EOF'
+            version: '3.8'
+            services:
+              api-boleto:
+                image: ghcr.io/diogenesmendes01/api-boleto-gatway:latest
+                container_name: api-boleto-olympia
+                restart: always
+                expose:
+                  - "3000"
+                environment:
+                  - NODE_ENV=production
+                  - PORT=3000
+                networks:
+                  - nginx-proxy-manager_default
+            networks:
+              nginx-proxy-manager_default:
+                external: true
+            EOF
+            fi
+            
+            # Pull e restart
+            docker pull ghcr.io/diogenesmendes01/api-boleto-gatway:latest
+            docker compose -f docker-compose.prod.yml down
+            docker compose -f docker-compose.prod.yml up -d
+            
+            # Verificar
+            docker ps | grep api-boleto-olympia
