@@ -1,161 +1,44 @@
+# docker-compose.prod.yml
 version: '3.8'
 
 services:
-  # API Backend
-  api-boletos:
-    image: ghcr.io/diogenesmendes01/api-boletos-gateway:${TAG:-latest}
-    container_name: api-boletos-olympia
+  api-boleto:
+    image: ghcr.io/diogenesmendes01/api-boleto-gatway:latest
+    container_name: api-boleto-olympia
     restart: always
     ports:
-      - "127.0.0.1:3001:3000"  # Porta 3001 interna, não exposta externamente
+      - "127.0.0.1:3001:3000"
     environment:
-      # Configurações da aplicação
       - NODE_ENV=production
       - PORT=3000
-      - API_URL=https://api.envio-boleto.olympiabank.xyz
-      - FRONTEND_URL=https://envio-boleto.olympiabank.xyz
-      
-      # Banco de dados
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres-boletos:5432/${DB_NAME}
-      
-      # Redis
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis-boletos:6379
-      
-      # Segurança
-      - JWT_SECRET=${JWT_SECRET}
-      - API_KEY=${API_KEY}
-      
-      # CORS
-      - CORS_ORIGINS=https://envio-boleto.olympiabank.xyz,http://localhost:3000
-      
-      # Logs
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-      
-      # Configurações de boleto (adicione as suas)
-      - BOLETO_API_URL=${BOLETO_API_URL}
-      - BOLETO_API_KEY=${BOLETO_API_KEY}
-      
+      - DATABASE_URL=postgresql://postgres:postgres@postgres-olympia:5432/boleto_db
+      - DB_HOST=postgres-olympia
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_DATABASE=boleto_db
+      - REDIS_URL=redis://redis-boleto:6379
+      - JWT_SECRET=${JWT_SECRET:-jwt_olympia_secret_change_this}
+      - API_KEY=${API_KEY:-api_key_change_this}
+      - CORS_ORIGINS=https://envio-boleto.olympiabank.xyz
+      - LOG_LEVEL=info
     networks:
-      - olympia-network
-    depends_on:
-      postgres-boletos:
-        condition: service_healthy
-      redis-boletos:
-        condition: service_healthy
+      - nginx-proxy-manager_default
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
-
-  # Banco de Dados PostgreSQL
-  postgres-boletos:
-    image: postgres:15-alpine
-    container_name: postgres-boletos-olympia
-    restart: always
-    environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --locale=pt_BR.utf8
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backups:/backups  # Para backups
-    ports:
-      - "127.0.0.1:5433:5432"  # Porta 5433 para não conflitar
-    networks:
-      - olympia-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-  # Cache Redis
-  redis-boletos:
-    image: redis:7-alpine
-    container_name: redis-boletos-olympia
-    restart: always
-    command: >
-      redis-server
-      --appendonly yes
-      --appendfilename "olympia-boletos.aof"
-      --requirepass ${REDIS_PASSWORD}
-      --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
-    volumes:
-      - redis_data:/data
-    ports:
-      - "127.0.0.1:6380:6379"  # Porta 6380 para não conflitar
-    networks:
-      - olympia-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Backup automático (opcional)
-  postgres-backup:
-    image: postgres:15-alpine
-    container_name: postgres-backup-olympia
-    restart: "no"
-    profiles:
-      - backup
-    environment:
-      - PGUSER=${DB_USER}
-      - PGPASSWORD=${DB_PASSWORD}
-      - PGDATABASE=${DB_NAME}
-      - PGHOST=postgres-boletos
-    volumes:
-      - ./backups:/backups
-    command: >
-      sh -c "
-        while true; do
-          pg_dump -h postgres-boletos -U ${DB_USER} -d ${DB_NAME} > /backups/backup-$$(date +%Y%m%d-%H%M%S).sql
-          find /backups -name 'backup-*.sql' -mtime +7 -delete
-          sleep 86400
-        done
-      "
-    networks:
-      - olympia-network
-    depends_on:
-      - postgres-boletos
-
-volumes:
-  postgres_data:
-    name: olympia_boletos_postgres_data
-  redis_data:
-    name: olympia_boletos_redis_data
 
 networks:
-  olympia-network:
-    name: olympia_boletos_network
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/24
+  nginx-proxy-manager_default:
+    external: true

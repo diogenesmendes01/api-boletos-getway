@@ -43,7 +43,7 @@ async function bootstrap() {
       },
       'bearer-key',
     )
-    .addServer(configService.get('API_BASE_URL', 'http://localhost:8080'), 'Servidor da API')
+    .addServer(configService.get('API_BASE_URL', 'http://localhost:3000'), 'Servidor da API')
     .setContact(
       'Suporte Técnico',
       'https://github.com/seu-usuario/api-boletos-gateway',
@@ -64,7 +64,7 @@ async function bootstrap() {
     customCssUrl: '/swagger-ui.css',
   });
 
-  const port = configService.get<number>('API_PORT', 8080);
+  const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
   
   console.log(`API running on port ${port}`);

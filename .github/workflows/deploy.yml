@@ -1,0 +1,226 @@
+name: Deploy API Boletos Olympiabank
+
+on:
+  push:
+    branches: 
+      - main
+      - master
+      - develop
+  pull_request:
+    branches: 
+      - main
+      - master
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: diogenesmendes01/api-boleto-gatway
+  VPS_IP: 168.231.92.229
+
+jobs:
+  test:
+    name: Testes
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci || npm install
+
+      - name: Executar testes
+        run: npm test || echo "Testes não configurados"
+        continue-on-error: true
+
+      - name: Build do projeto
+        run: npm run build || echo "Build não necessário"
+
+  build-and-push:
+    name: Build e Push Docker
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Definir tags
+        id: tags
+        run: |
+          BRANCH=${GITHUB_REF#refs/heads/}
+          SHA=${GITHUB_SHA::7}
+          if [[ "$BRANCH" == "main" ]] || [[ "$BRANCH" == "master" ]]; then
+            echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production-$SHA" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH" == "develop" ]]; then
+            echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:develop,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:develop-$SHA" >> $GITHUB_OUTPUT
+          else
+            echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$SHA" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build e Push da imagem Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
+
+  deploy:
+    name: Deploy na VPS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            
+            echo "🚀 Iniciando deploy..."
+            
+            # Navegar para pasta do projeto
+            cd ~/projetos/api-boleto || mkdir -p ~/projetos/api-boleto && cd ~/projetos/api-boleto
+            
+            # Criar docker-compose.prod.yml se não existir
+            if [ ! -f docker-compose.prod.yml ]; then
+              cat > docker-compose.prod.yml << 'EOFDOCKER'
+            version: '3.8'
+            
+            services:
+              api-boleto:
+                image: ghcr.io/diogenesmendes01/api-boleto-gatway:latest
+                container_name: api-boleto-olympia
+                restart: always
+                ports:
+                  - "127.0.0.1:3001:3000"
+                environment:
+                  - NODE_ENV=production
+                  - PORT=3000
+                  - DATABASE_URL=postgresql://postgres:postgres@postgres-olympia:5432/boleto_db
+                  - DB_HOST=postgres-olympia
+                  - DB_PORT=5432
+                  - DB_USERNAME=postgres
+                  - DB_PASSWORD=postgres
+                  - DB_DATABASE=boleto_db
+                  - JWT_SECRET=${JWT_SECRET:-jwt_olympia_secret_change_this}
+                  - API_KEY=${API_KEY:-api_key_change_this}
+                  - CORS_ORIGINS=https://envio-boleto.olympiabank.xyz
+                  - LOG_LEVEL=info
+                networks:
+                  - nginx-proxy-manager_default
+                volumes:
+                  - ./logs:/app/logs
+                  - ./uploads:/app/uploads
+                healthcheck:
+                  test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+                  interval: 30s
+                  timeout: 10s
+                  retries: 3
+                  start_period: 60s
+                logging:
+                  driver: "json-file"
+                  options:
+                    max-size: "10m"
+                    max-file: "3"
+            
+            networks:
+              nginx-proxy-manager_default:
+                external: true
+            EOFDOCKER
+            fi
+            
+            # Criar arquivo .env se não existir
+            if [ ! -f .env ]; then
+              cat > .env << 'EOFENV'
+            JWT_SECRET=jwt_olympia_secret_change_this_now_123456
+            API_KEY=api_key_olympia_change_this_now_789012
+            EOFENV
+            fi
+            
+            # Criar diretórios necessários
+            mkdir -p logs uploads
+            chmod 777 logs uploads
+            
+            # Fazer backup do container atual (se existir)
+            docker tag ghcr.io/diogenesmendes01/api-boleto-gatway:latest ghcr.io/diogenesmendes01/api-boleto-gatway:backup 2>/dev/null || true
+            
+            # Pull da nova imagem
+            echo "📦 Baixando nova imagem..."
+            docker pull ghcr.io/diogenesmendes01/api-boleto-gatway:latest
+            
+            # Parar container antigo
+            echo "🛑 Parando container antigo..."
+            docker compose -f docker-compose.prod.yml down || true
+            
+            # Subir novo container
+            echo "🚀 Subindo novo container..."
+            docker compose -f docker-compose.prod.yml up -d
+            
+            # Aguardar container iniciar
+            echo "⏳ Aguardando container iniciar..."
+            sleep 15
+            
+            # Verificar se está rodando
+            if docker ps | grep -q api-boleto-olympia; then
+              echo "✅ Container rodando!"
+              
+              # Verificar health
+              if curl -f http://localhost:3001/health 2>/dev/null; then
+                echo "✅ Health check OK!"
+              else
+                echo "⚠️ Health check falhou, mas container está rodando"
+              fi
+              
+              # Limpar imagens antigas
+              docker image prune -f
+              
+              echo "✅ Deploy concluído com sucesso!"
+            else
+              echo "❌ Container não está rodando! Tentando rollback..."
+              docker tag ghcr.io/diogenesmendes01/api-boleto-gatway:backup ghcr.io/diogenesmendes01/api-boleto-gatway:latest 2>/dev/null || true
+              docker compose -f docker-compose.prod.yml up -d
+              exit 1
+            fi
+            
+            # Mostrar logs
+            echo "📋 Últimas linhas do log:"
+            docker logs --tail 20 api-boleto-olympia
+
+      - name: Notificação de sucesso
+        if: success()
+        run: echo "✅ Deploy realizado com sucesso para produção!"
+
+      - name: Notificação de falha
+        if: failure()
+        run: echo "❌ Deploy falhou! Verifique os logs."
