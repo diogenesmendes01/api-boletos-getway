@@ -11,17 +11,35 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=postgresql://postgres:postgres@postgres-olympia:5432/boleto_db
-      - DB_HOST=postgres-olympia
-      - DB_PORT=5432
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=postgres
-      - DB_DATABASE=boleto_db
+
       - REDIS_URL=redis://redis-boleto:6379
+       # Conexão com PostgreSQL
+      - DATABASE_URL=postgresql://olympia_app:V/aMMGypweFPSlGivTdcaC44zzEZDfuv@postgres-olympia:5432/boleto_db
+      
+      # Configurações TypeORM COMPLETAS
+      - TYPEORM_CONNECTION=postgres
+      - TYPEORM_HOST=postgres-olympia
+      - TYPEORM_PORT=5432
+      - TYPEORM_USERNAME=olympia_app
+      - TYPEORM_PASSWORD=V/aMMGypweFPSlGivTdcaC44zzEZDfuv
+      - TYPEORM_DATABASE=boleto_db
+      - TYPEORM_SYNCHRONIZE=false
+      - TYPEORM_LOGGING=true
+      
+      # ENTIDADES E MIGRATIONS
+      - TYPEORM_ENTITIES=dist/src/entities/*.js
+      - TYPEORM_MIGRATIONS=dist/src/migrations/*.js
+      - TYPEORM_MIGRATIONS_RUN=true
+      - TYPEORM_MIGRATIONS_DIR=dist/src/migrations
+      - TYPEORM_ENTITIES_DIR=dist/src/entities
+
+
+      # Segurança
       - JWT_SECRET=${JWT_SECRET:-jwt_olympia_secret_change_this}
       - API_KEY=${API_KEY:-api_key_change_this}
       - CORS_ORIGINS=https://envio-boleto.olympiabank.xyz
       - LOG_LEVEL=info
+
     networks:
       - proxy-network
     volumes:
