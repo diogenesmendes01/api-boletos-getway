@@ -1,4 +1,3 @@
-# .github/workflows/deploy.yml
 name: Deploy API Boletos Gateway
 
 on:
@@ -260,13 +259,14 @@ jobs:
             # Parar container antigo
             echo "🛑 Parando container antigo..."
             docker compose -f docker-compose.prod.yml down || true
+            docker rm -f api-boleto-olympia || true   # <<< ÚNICA LINHA ADICIONADA
             
             # Limpar volumes órfãos
             docker volume prune -f 2>/dev/null || true
             
             # Subir novo container
             echo "🚀 Iniciando novo container..."
-            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml up -d --force-recreate
             
             # Aguardar inicialização
             echo "⏳ Aguardando inicialização (30 segundos)..."
