@@ -1,0 +1,10 @@
+{
+  "type": "postgres",
+  "url": "postgres://boletos_user:boletos_pass@localhost:5432/boletos_db",
+  "entities": ["dist/**/*.entity{.ts,.js}"],
+  "migrations": ["dist/migrations/*{.ts,.js}"],
+  "cli": {
+    "migrationsDir": "src/migrations"
+  },
+  "synchronize": false
+}

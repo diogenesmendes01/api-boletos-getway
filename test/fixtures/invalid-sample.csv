@@ -1,0 +1,7 @@
+amount,name,document,telefone,email,vencimento
+invalid-amount,João Silva,11144477735,11987654321,joao.silva@email.com,2024-12-31
+1500,Maria Santos,invalid-document,21988776655,maria.santos@email.com,31/12/2024
+2000,Pedro Oliveira,33366699977,123,pedro.oliveira@email.com,2024-11-15
+3000,Ana Costa,44477788811,85987654321,invalid-email,15/11/2024
+500,Carlos Pereira,55588899900,47912345678,carlos.pereira@email.com,invalid-date
+,Empty Name User,66699900011,11987654321,empty@email.com,2024-12-31
