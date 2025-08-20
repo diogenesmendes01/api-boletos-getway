@@ -3,6 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { lastValueFrom } from 'rxjs';
 import { AxiosError } from 'axios';
+import { LoggerService } from '../common/logger.service';
 
 interface CreateBoletoDto {
   amount: number;
@@ -31,9 +32,17 @@ export class OlympiaBankService {
   constructor(
     private httpService: HttpService,
     private configService: ConfigService,
+    private loggerService: LoggerService,
   ) {
     this.baseUrl = this.configService.get<string>('OLYMPIA_BASE_URL');
     this.token = this.configService.get<string>('OLYMPIA_TOKEN');
+
+    this.loggerService.info('OlympiaBankService initialized', {
+      baseUrl: this.baseUrl,
+      hasToken: !!this.token,
+      minRequestInterval: this.minRequestInterval,
+      type: 'service_initialization',
+    });
   }
 
   async createBoleto(dto: CreateBoletoDto): Promise<BoletoResponse> {
@@ -61,6 +70,15 @@ export class OlympiaBankService {
     };
 
     return this.executeWithRateLimit(async () => {
+      const startTime = Date.now();
+
+      this.loggerService.debug('Creating boleto via OlympiaBank API', {
+        amount: dto.amount,
+        name: dto.name,
+        document: dto.document,
+        type: 'boleto_creation_start',
+      });
+
       try {
         const response = await lastValueFrom(
           this.httpService.post(`${this.baseUrl}/v1/boleto/`, payload, {
@@ -72,6 +90,24 @@ export class OlympiaBankService {
           })
         );
 
+        const duration = Date.now() - startTime;
+
+        this.loggerService.logExternalApi({
+          service: 'OlympiaBank',
+          method: 'POST',
+          url: `${this.baseUrl}/v1/boleto/`,
+          statusCode: response.status,
+          duration,
+          success: true,
+        });
+
+        this.loggerService.info('Boleto created successfully', {
+          idTransaction: response.data.idTransaction,
+          boletoCode: response.data.boletoCode,
+          duration,
+          type: 'boleto_creation_success',
+        });
+
         return {
           idTransaction: response.data.idTransaction,
           boletoUrl: response.data.boletoUrl,
@@ -80,24 +116,63 @@ export class OlympiaBankService {
           dueDate: response.data.dueDate,
         };
       } catch (error) {
+        const duration = Date.now() - startTime;
+
         if (error instanceof AxiosError) {
-          console.error('OlympiaBank API error:', {
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message,
+          this.loggerService.logExternalApi({
+            service: 'OlympiaBank',
+            method: 'POST',
+            url: `${this.baseUrl}/v1/boleto/`,
+            statusCode: error.response?.status,
+            duration,
+            success: false,
+            error: {
+              message: error.message,
+              response: error.response?.data,
+              status: error.response?.status,
+            },
           });
 
           if (error.response?.status === 429) {
             const retryAfter = error.response.headers['retry-after'];
             if (retryAfter) {
-              this.minRequestInterval = parseInt(retryAfter) * 1000;
+              const newInterval = parseInt(retryAfter) * 1000;
+              this.loggerService.warn('Rate limit detected, adjusting interval', {
+                oldInterval: this.minRequestInterval,
+                newInterval,
+                retryAfter,
+                type: 'rate_limit_adjustment',
+              });
+              this.minRequestInterval = newInterval;
             }
+          }
+
+          if (error.response?.status >= 500) {
+            this.loggerService.error('OlympiaBank server error', error, {
+              status: error.response?.status,
+              data: error.response?.data,
+              duration,
+              type: 'external_api_server_error',
+            });
+          } else if (error.response?.status >= 400) {
+            this.loggerService.warn('OlympiaBank client error', {
+              status: error.response?.status,
+              data: error.response?.data,
+              duration,
+              type: 'external_api_client_error',
+            });
           }
 
           throw new Error(
             `OlympiaBank API error: ${error.response?.data?.message || error.message}`
           );
         }
+
+        this.loggerService.error('Unexpected error calling OlympiaBank API', error, {
+          duration,
+          type: 'external_api_unexpected_error',
+        });
+
         throw error;
       }
     });

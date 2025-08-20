@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from './auth.guard';
+import { LoggerService } from '../common/logger.service';
 
 describe('AuthGuard', () => {
   let guard: AuthGuard;
@@ -11,6 +12,15 @@ describe('AuthGuard', () => {
     get: jest.fn(),
   };
 
+  const mockLoggerService = {
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    logAuth: jest.fn(),
+    logSecurity: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -18,6 +28,10 @@ describe('AuthGuard', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: LoggerService,
+          useValue: mockLoggerService,
         },
       ],
     }).compile();
@@ -52,7 +66,7 @@ describe('AuthGuard', () => {
     
     beforeEach(() => {
       mockConfigService.get.mockReturnValue('clienteA:token123,clienteB:token456');
-      testGuard = new AuthGuard(configService);
+      testGuard = new AuthGuard(configService, mockLoggerService as any);
     });
 
     it('should allow access with valid token', () => {
@@ -105,7 +119,7 @@ describe('AuthGuard', () => {
 
     it('should handle empty CLIENT_API_KEYS config', () => {
       mockConfigService.get.mockReturnValue('');
-      const emptyGuard = new AuthGuard(configService);
+      const emptyGuard = new AuthGuard(configService, mockLoggerService as any);
       
       const context = createMockExecutionContext('Bearer token123');
 
@@ -115,7 +129,7 @@ describe('AuthGuard', () => {
 
     it('should handle malformed CLIENT_API_KEYS config', () => {
       mockConfigService.get.mockReturnValue('invalidformat');
-      const malformedGuard = new AuthGuard(configService);
+      const malformedGuard = new AuthGuard(configService, mockLoggerService as any);
       
       const context = createMockExecutionContext('Bearer token123');
 
@@ -125,7 +139,7 @@ describe('AuthGuard', () => {
 
     it('should handle CLIENT_API_KEYS with empty client or key', () => {
       mockConfigService.get.mockReturnValue('clienteA:,clienteB:token456,:token789');
-      const mixedGuard = new AuthGuard(configService);
+      const mixedGuard = new AuthGuard(configService, mockLoggerService as any);
       
       const context = createMockExecutionContext('Bearer token456');
 
@@ -138,7 +152,7 @@ describe('AuthGuard', () => {
 
     it('should handle multiple valid tokens for same client', () => {
       mockConfigService.get.mockReturnValue('clienteA:token1,clienteA:token2');
-      const multiGuard = new AuthGuard(configService);
+      const multiGuard = new AuthGuard(configService, mockLoggerService as any);
       
       const context1 = createMockExecutionContext('Bearer token1');
       const context2 = createMockExecutionContext('Bearer token2');
@@ -152,7 +166,7 @@ describe('AuthGuard', () => {
 
     it('should be case sensitive with tokens', () => {
       mockConfigService.get.mockReturnValue('clienteA:Token123');
-      const sensitiveGuard = new AuthGuard(configService);
+      const sensitiveGuard = new AuthGuard(configService, mockLoggerService as any);
       
       const context = createMockExecutionContext('Bearer token123');
 
@@ -165,7 +179,7 @@ describe('AuthGuard', () => {
     it('should initialize with empty config', () => {
       mockConfigService.get.mockReturnValue(undefined);
       
-      const testGuard = new AuthGuard(configService);
+      const testGuard = new AuthGuard(configService, mockLoggerService as any);
       const context = createMockExecutionContext('Bearer anytoken');
 
       expect(() => testGuard.canActivate(context)).toThrow(UnauthorizedException);
@@ -175,7 +189,7 @@ describe('AuthGuard', () => {
       const spy = jest.spyOn(configService, 'get');
       spy.mockReturnValue('client1:key1,client2:key2');
 
-      const testGuard = new AuthGuard(configService);
+      const testGuard = new AuthGuard(configService, mockLoggerService as any);
 
       expect(spy).toHaveBeenCalledWith('CLIENT_API_KEYS', '');
       

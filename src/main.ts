@@ -3,11 +3,13 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { LoggerService } from './common/logger.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
   const configService = app.get(ConfigService);
+  const loggerService = app.get(LoggerService);
   
   app.useGlobalPipes(new ValidationPipe({
     transform: true,
@@ -65,9 +67,26 @@ async function bootstrap() {
   });
 
   const port = configService.get<number>('PORT', 3000);
+  
+  loggerService.info('Starting API server', {
+    port,
+    nodeEnv: process.env.NODE_ENV,
+    type: 'server_startup',
+  });
+
   await app.listen(port);
   
+  loggerService.info('API server started successfully', {
+    port,
+    swaggerDocs: `http://localhost:${port}/docs`,
+    type: 'server_ready',
+  });
+
   console.log(`API running on port ${port}`);
   console.log(`📖 Swagger documentation available at: http://localhost:${port}/docs`);
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  console.error('Failed to start application:', error);
+  process.exit(1);
+});

@@ -8,6 +8,7 @@ import { Import, ImportStatus } from '../entities/import.entity';
 import { ImportRow, RowStatus } from '../entities/import-row.entity';
 import { Transaction } from '../entities/transaction.entity';
 import { OlympiaBankService } from './olympia-bank.service';
+import { LoggerService } from '../common/logger.service';
 import { lastValueFrom } from 'rxjs';
 
 @Processor('import-queue')
@@ -25,69 +26,159 @@ export class ImportProcessor {
     private olympiaBankService: OlympiaBankService,
     private configService: ConfigService,
     private httpService: HttpService,
+    private loggerService: LoggerService,
   ) {
     this.maxConcurrency = this.configService.get<number>('MAX_CONCURRENCY', 12);
     this.maxRetries = this.configService.get<number>('MAX_RETRIES', 5);
+
+    this.loggerService.info('ImportProcessor initialized', {
+      maxConcurrency: this.maxConcurrency,
+      maxRetries: this.maxRetries,
+      type: 'processor_initialization',
+    });
   }
 
   @Process({ name: 'process-import', concurrency: 1 })
   async processImport(job: Job<{ importId: string }>) {
     const { importId } = job.data;
+    const startTime = Date.now();
     
-    await this.importRepository.update(importId, {
-      status: ImportStatus.PROCESSING,
-      startedAt: new Date(),
+    this.loggerService.logJobProcessing({
+      jobId: job.id.toString(),
+      jobType: 'process-import',
+      status: 'started',
+      metadata: { importId },
     });
 
-    const rows = await this.importRowRepository.find({
-      where: { importId, status: RowStatus.PENDING },
-    });
-
-    const batchSize = this.maxConcurrency;
-    const batches = [];
-    
-    for (let i = 0; i < rows.length; i += batchSize) {
-      batches.push(rows.slice(i, i + batchSize));
-    }
-
-    for (const batch of batches) {
-      await Promise.all(batch.map(row => this.processRow(row)));
-      
-      const processedCount = await this.importRowRepository.count({
-        where: { 
-          importId, 
-          status: RowStatus.SUCCESS,
-        },
-      });
-      
-      const errorCount = await this.importRowRepository.count({
-        where: { 
-          importId, 
-          status: RowStatus.ERROR,
-        },
-      });
-
+    try {
       await this.importRepository.update(importId, {
-        processedRows: processedCount + errorCount,
-        successRows: processedCount,
-        errorRows: errorCount,
+        status: ImportStatus.PROCESSING,
+        startedAt: new Date(),
       });
-    }
 
-    const import_ = await this.importRepository.findOne({ where: { id: importId } });
-    
-    await this.importRepository.update(importId, {
-      status: ImportStatus.COMPLETED,
-      finishedAt: new Date(),
-    });
+      const rows = await this.importRowRepository.find({
+        where: { importId, status: RowStatus.PENDING },
+      });
 
-    if (import_.webhookUrl) {
-      await this.sendWebhook(import_);
+      this.loggerService.info('Import processing started', {
+        importId,
+        totalRows: rows.length,
+        maxConcurrency: this.maxConcurrency,
+        type: 'import_processing_start',
+      });
+
+      const batchSize = this.maxConcurrency;
+      const batches = [];
+      
+      for (let i = 0; i < rows.length; i += batchSize) {
+        batches.push(rows.slice(i, i + batchSize));
+      }
+
+      this.loggerService.debug('Import batches created', {
+        importId,
+        totalBatches: batches.length,
+        batchSize,
+        type: 'import_batch_info',
+      });
+
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        const batchStartTime = Date.now();
+
+        this.loggerService.debug('Processing batch', {
+          importId,
+          batchIndex: batchIndex + 1,
+          totalBatches: batches.length,
+          batchSize: batch.length,
+          type: 'batch_processing_start',
+        });
+
+        await Promise.all(batch.map(row => this.processRow(row, importId)));
+        
+        const batchDuration = Date.now() - batchStartTime;
+        
+        const processedCount = await this.importRowRepository.count({
+          where: { 
+            importId, 
+            status: RowStatus.SUCCESS,
+          },
+        });
+        
+        const errorCount = await this.importRowRepository.count({
+          where: { 
+            importId, 
+            status: RowStatus.ERROR,
+          },
+        });
+
+        await this.importRepository.update(importId, {
+          processedRows: processedCount + errorCount,
+          successRows: processedCount,
+          errorRows: errorCount,
+        });
+
+        this.loggerService.info('Batch completed', {
+          importId,
+          batchIndex: batchIndex + 1,
+          totalBatches: batches.length,
+          processedRows: processedCount,
+          errorRows: errorCount,
+          batchDuration,
+          type: 'batch_processing_complete',
+        });
+      }
+
+      const import_ = await this.importRepository.findOne({ where: { id: importId } });
+      
+      await this.importRepository.update(importId, {
+        status: ImportStatus.COMPLETED,
+        finishedAt: new Date(),
+      });
+
+      const totalDuration = Date.now() - startTime;
+
+      this.loggerService.logJobProcessing({
+        jobId: job.id.toString(),
+        jobType: 'process-import',
+        status: 'completed',
+        duration: totalDuration,
+        metadata: {
+          importId,
+          totalRows: import_.totalRows,
+          successRows: import_.successRows,
+          errorRows: import_.errorRows,
+        },
+      });
+
+      if (import_.webhookUrl) {
+        await this.sendWebhook(import_);
+      }
+    } catch (error) {
+      const totalDuration = Date.now() - startTime;
+
+      this.loggerService.logJobProcessing({
+        jobId: job.id.toString(),
+        jobType: 'process-import',
+        status: 'failed',
+        duration: totalDuration,
+        error,
+        metadata: { importId },
+      });
+
+      throw error;
     }
   }
 
-  private async processRow(row: ImportRow) {
+  private async processRow(row: ImportRow, importId: string) {
     let retryCount = 0;
+    
+    this.loggerService.debug('Processing row started', {
+      importId,
+      rowId: row.id,
+      rowNumber: row.rowNumber,
+      amount: row.amount,
+      type: 'row_processing_start',
+    });
     
     while (retryCount <= this.maxRetries) {
       try {
@@ -119,11 +210,32 @@ export class ImportProcessor {
           status: RowStatus.SUCCESS,
         });
 
+        this.loggerService.debug('Row processed successfully', {
+          importId,
+          rowId: row.id,
+          rowNumber: row.rowNumber,
+          idTransaction: result.idTransaction,
+          boletoCode: result.boletoCode,
+          retryCount,
+          type: 'row_processing_success',
+        });
+
         return;
       } catch (error) {
         retryCount++;
         
         const isRetryableError = this.isRetryableError(error);
+        
+        this.loggerService.warn('Row processing failed', {
+          importId,
+          rowId: row.id,
+          rowNumber: row.rowNumber,
+          retryCount,
+          maxRetries: this.maxRetries,
+          isRetryableError,
+          error: error.message,
+          type: 'row_processing_error',
+        });
         
         if (!isRetryableError || retryCount > this.maxRetries) {
           await this.importRowRepository.update(row.id, {
@@ -132,10 +244,29 @@ export class ImportProcessor {
             errorMessage: error.message || 'Unknown error',
             retryCount,
           });
+
+          this.loggerService.error('Row processing failed permanently', error, {
+            importId,
+            rowId: row.id,
+            rowNumber: row.rowNumber,
+            finalRetryCount: retryCount,
+            errorCode: error.response?.status || 'UNKNOWN',
+            type: 'row_processing_permanent_failure',
+          });
+
           return;
         }
 
-        await this.delay(Math.pow(2, retryCount) * 1000);
+        const delayMs = Math.pow(2, retryCount) * 1000;
+        this.loggerService.debug('Retrying row processing after delay', {
+          importId,
+          rowId: row.id,
+          retryCount,
+          delayMs,
+          type: 'row_processing_retry',
+        });
+
+        await this.delay(delayMs);
       }
     }
   }
@@ -152,6 +283,14 @@ export class ImportProcessor {
   }
 
   private async sendWebhook(import_: Import) {
+    const startTime = Date.now();
+
+    this.loggerService.info('Sending webhook notification', {
+      importId: import_.id,
+      webhookUrl: import_.webhookUrl,
+      type: 'webhook_sending',
+    });
+
     try {
       const stats = {
         importId: import_.id,
@@ -163,28 +302,88 @@ export class ImportProcessor {
         finishedAt: import_.finishedAt,
       };
 
-      await lastValueFrom(
+      const response = await lastValueFrom(
         this.httpService.post(import_.webhookUrl, stats, {
           timeout: 5000,
         })
       );
+
+      const duration = Date.now() - startTime;
+
+      this.loggerService.logExternalApi({
+        service: 'Webhook',
+        method: 'POST',
+        url: import_.webhookUrl,
+        statusCode: response.status,
+        duration,
+        success: true,
+      });
+
+      this.loggerService.info('Webhook sent successfully', {
+        importId: import_.id,
+        webhookUrl: import_.webhookUrl,
+        statusCode: response.status,
+        duration,
+        type: 'webhook_success',
+      });
     } catch (error) {
-      console.error(`Failed to send webhook for import ${import_.id}:`, error.message);
+      const duration = Date.now() - startTime;
+
+      this.loggerService.logExternalApi({
+        service: 'Webhook',
+        method: 'POST',
+        url: import_.webhookUrl,
+        statusCode: error.response?.status,
+        duration,
+        success: false,
+        error: {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+        },
+      });
+
+      this.loggerService.error('Failed to send webhook', error, {
+        importId: import_.id,
+        webhookUrl: import_.webhookUrl,
+        duration,
+        type: 'webhook_failure',
+      });
     }
   }
 
   @OnQueueCompleted()
   async onCompleted(job: Job) {
-    console.log(`Import ${job.data.importId} completed successfully`);
+    this.loggerService.info('Import job completed successfully', {
+      jobId: job.id.toString(),
+      importId: job.data.importId,
+      type: 'job_completed',
+    });
   }
 
   @OnQueueFailed()
   async onFailed(job: Job, error: Error) {
-    console.error(`Import ${job.data.importId} failed:`, error.message);
-    
-    await this.importRepository.update(job.data.importId, {
-      status: ImportStatus.FAILED,
-      finishedAt: new Date(),
+    this.loggerService.error('Import job failed', error, {
+      jobId: job.id.toString(),
+      importId: job.data.importId,
+      type: 'job_failed',
     });
+    
+    try {
+      await this.importRepository.update(job.data.importId, {
+        status: ImportStatus.FAILED,
+        finishedAt: new Date(),
+      });
+
+      this.loggerService.info('Import status updated to FAILED', {
+        importId: job.data.importId,
+        type: 'import_status_update',
+      });
+    } catch (updateError) {
+      this.loggerService.error('Failed to update import status to FAILED', updateError, {
+        importId: job.data.importId,
+        type: 'import_status_update_error',
+      });
+    }
   }
 }

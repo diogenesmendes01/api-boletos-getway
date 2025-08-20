@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { OlympiaBankService } from './olympia-bank.service';
+import { LoggerService } from '../common/logger.service';
 import { AxiosResponse, AxiosError } from 'axios';
 import { of, throwError } from 'rxjs';
 
@@ -18,6 +19,14 @@ describe('OlympiaBankService', () => {
     get: jest.fn(),
   };
 
+  const mockLoggerService = {
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    logExternalApi: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -29,6 +38,10 @@ describe('OlympiaBankService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: LoggerService,
+          useValue: mockLoggerService,
         },
       ],
     }).compile();

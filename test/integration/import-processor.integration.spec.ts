@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { ImportProcessor } from '../../src/imports/import.processor';
 import { OlympiaBankService } from '../../src/imports/olympia-bank.service';
+import { LoggerService } from '../../src/common/logger.service';
 import { Import, ImportStatus } from '../../src/entities/import.entity';
 import { ImportRow, RowStatus } from '../../src/entities/import-row.entity';
 import { Transaction } from '../../src/entities/transaction.entity';
@@ -44,6 +45,15 @@ describe('ImportProcessor Integration', () => {
     get: jest.fn(),
   };
 
+  const mockLoggerService = {
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    logJobProcessing: jest.fn(),
+    logExternalApi: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -68,6 +78,10 @@ describe('ImportProcessor Integration', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: LoggerService,
+          useValue: mockLoggerService,
         },
       ],
     }).compile();
