@@ -168,89 +168,88 @@ jobs:
             # Criar docker-compose.prod.yml com configuração completa
             echo "📝 Criando docker-compose.prod.yml..."
             cat > docker-compose.prod.yml << 'DOCKEREOF'
-           version: '3.8'
+            version: '3.8'
+            services:
+            api-boleto:
+              image: ghcr.io/diogenesmendes01/api-boletos-getway:latest
+              container_name: api-boleto-olympia
+              restart: always
+              command: node dist/src/main.js
+              ports:
+                - "127.0.0.1:3001:3000"
+              environment:
+                NODE_ENV: production
+                PORT: "3000"
+                
+                # ===== BANCO DE DADOS =====
+                DB_HOST: postgres-olympia
+                DB_PORT: "5432"
+                DB_USERNAME: olympia_app
+                DB_PASSWORD: V/aMMGypweFPSlGivTdcaC44zzEZDfuv
+                DB_DATABASE: boleto_db
+                
+                # ===== TYPEORM =====
+                TYPEORM_CONNECTION: postgres
+                TYPEORM_HOST: postgres-olympia
+                TYPEORM_PORT: "5432"
+                TYPEORM_USERNAME: olympia_app
+                TYPEORM_PASSWORD: V/aMMGypweFPSlGivTdcaC44zzEZDfuv
+                TYPEORM_DATABASE: boleto_db
+                TYPEORM_SYNCHRONIZE: "false"
+                TYPEORM_LOGGING: "true"
+                TYPEORM_ENTITIES: dist/src/entities/*.entity.js
+                TYPEORM_MIGRATIONS: dist/src/migrations/*.js
+                TYPEORM_MIGRATIONS_DIR: src/migrations
+                TYPEORM_ENTITIES_DIR: src/entities
+                TYPEORM_MIGRATIONS_TABLE_NAME: migrations
+                TYPEORM_MIGRATIONS_RUN: "true"
+                
+                # ===== REDIS (IMPORTANTE!) =====
+                REDIS_URL: redis://redis-boleto:6379
+                
+                # ===== SEGURANÇA =====
+                JWT_SECRET: jwt_olympia_secret_change_this_2024
+                API_KEY: api_key_olympia_change_this_2024
+                
+                # ===== OUTROS =====
+                CORS_ORIGINS: https://envio-boleto.olympiabank.xyz
+                LOG_LEVEL: debug
+                
+              networks:
+                - proxy-network
+              volumes:
+                - ./logs:/app/logs
+                - ./uploads:/app/uploads
+              depends_on:
+                - redis-boleto
+              healthcheck:
+                test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
 
-services:
-  api-boleto:
-    image: ghcr.io/diogenesmendes01/api-boletos-getway:latest
-    container_name: api-boleto-olympia
-    restart: always
-    command: node dist/src/main.js
-    ports:
-      - "127.0.0.1:3001:3000"
-    environment:
-      NODE_ENV: production
-      PORT: "3000"
-      
-      # ===== BANCO DE DADOS =====
-      DB_HOST: postgres-olympia
-      DB_PORT: "5432"
-      DB_USERNAME: olympia_app
-      DB_PASSWORD: V/aMMGypweFPSlGivTdcaC44zzEZDfuv
-      DB_DATABASE: boleto_db
-      
-      # ===== TYPEORM =====
-      TYPEORM_CONNECTION: postgres
-      TYPEORM_HOST: postgres-olympia
-      TYPEORM_PORT: "5432"
-      TYPEORM_USERNAME: olympia_app
-      TYPEORM_PASSWORD: V/aMMGypweFPSlGivTdcaC44zzEZDfuv
-      TYPEORM_DATABASE: boleto_db
-      TYPEORM_SYNCHRONIZE: "false"
-      TYPEORM_LOGGING: "true"
-      TYPEORM_ENTITIES: dist/src/entities/*.entity.js
-      TYPEORM_MIGRATIONS: dist/src/migrations/*.js
-      TYPEORM_MIGRATIONS_DIR: src/migrations
-      TYPEORM_ENTITIES_DIR: src/entities
-      TYPEORM_MIGRATIONS_TABLE_NAME: migrations
-      TYPEORM_MIGRATIONS_RUN: "true"
-      
-      # ===== REDIS (IMPORTANTE!) =====
-      REDIS_URL: redis://redis-boleto:6379
-      
-      # ===== SEGURANÇA =====
-      JWT_SECRET: jwt_olympia_secret_change_this_2024
-      API_KEY: api_key_olympia_change_this_2024
-      
-      # ===== OUTROS =====
-      CORS_ORIGINS: https://envio-boleto.olympiabank.xyz
-      LOG_LEVEL: debug
-      
-    networks:
-      - proxy-network
-    volumes:
-      - ./logs:/app/logs
-      - ./uploads:/app/uploads
-    depends_on:
-      - redis-boleto
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+            # ADICIONAR REDIS
+            redis-boleto:
+              image: redis:7-alpine
+              container_name: redis-boleto
+              restart: always
+              command: redis-server --appendonly yes
+              volumes:
+                - redis_data:/data
+              networks:
+                - proxy-network
+              healthcheck:
+                test: ["CMD", "redis-cli", "ping"]
+                interval: 10s
+                timeout: 5s
+                retries: 5
 
-  # ADICIONAR REDIS
-  redis-boleto:
-    image: redis:7-alpine
-    container_name: redis-boleto
-    restart: always
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    networks:
-      - proxy-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+            volumes:
+            redis_data:
 
-volumes:
-  redis_data:
-
-networks:
-  proxy-network:
-    external: true
+            networks:
+            proxy-network:
+              external: true
             DOCKEREOF
             
             # Substituir variável IMAGE_NAME no docker-compose
