@@ -152,6 +152,59 @@ Swagger:
   - Desenvolvimento: http://localhost:3000/docs
 ```
 
+## 🚀 Deploy em Produção
+
+### ⚠️ Pré-requisitos
+- **Banco PostgreSQL**: Container `postgres-olympia` já deve estar rodando na VPS
+- **Rede Docker**: Container deve estar na mesma rede que o banco
+
+### 1. Configurar Variáveis de Ambiente
+```bash
+# Copiar arquivo de exemplo
+cp .env.production.example .env.production
+
+# Editar com suas configurações
+nano .env.production
+```
+
+### 2. Deploy com Docker Compose
+```bash
+# Deploy da API (banco já está rodando)
+docker-compose -f docker-compose.prod.yml up -d
+
+# Verificar status
+docker-compose -f docker-compose.prod.yml ps
+
+# Ver logs
+docker-compose -f docker-compose.prod.yml logs -f api-boleto
+```
+
+### 3. Verificar Saúde da Aplicação
+```bash
+# Health check
+curl https://api.envio-boleto.olympiabank.xyz/health
+
+# Swagger
+curl https://api.envio-boleto.olympiabank.xyz/docs
+```
+
+### 4. Configuração do Banco (Já existe)
+```bash
+# Container: postgres-olympia
+# Host: postgres-olympia:5432
+# Usuário: olympia_app
+# Banco: boleto_db
+# Conexão: postgresql://olympia_app:V/aMMGypweFPSlGivTdcaC44zzEZDfuv@postgres-olympia:5432/boleto_db
+```
+
+### 5. Como Funciona a Autenticação
+```bash
+# 1. Frontend faz login com email + olympiaToken
+# 2. API armazena o token no banco (tabela user_tokens)
+# 3. Cada usuário usa seu próprio token OlympiaBank
+# 4. Não há token fixo no ambiente - é dinâmico por usuário
+```
+
 ### 🔐 **POST /v1/auth/login** - Login do Usuário
 
 **Body:**
