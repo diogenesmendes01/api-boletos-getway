@@ -16,18 +16,36 @@ async function bootstrap() {
     whitelist: true,
   }));
 
-  app.setGlobalPrefix('v1');
+  // Configuração do prefixo global da API
+  app.setGlobalPrefix('v1', {
+    exclude: ['/health', '/docs', '/swagger'],
+  });
   
   // Configuração do CORS
   const corsOrigins = configService.get<string>('CORS_ORIGINS', '');
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
   app.enableCors({
-    origin: corsOrigins ? corsOrigins.split(',') : true,
+    origin: isDevelopment ? true : (corsOrigins ? corsOrigins.split(',') : false),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key', 'X-Requested-With'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
 
   // Configuração do Swagger
+  const apiBaseUrl = configService.get('API_BASE_URL');
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Determinar a URL base para o Swagger
+  let swaggerBaseUrl = 'http://localhost:3000';
+  if (isProduction && apiBaseUrl) {
+    swaggerBaseUrl = apiBaseUrl;
+  } else if (apiBaseUrl) {
+    swaggerBaseUrl = apiBaseUrl;
+  }
+  
   const config = new DocumentBuilder()
     .setTitle('API Boletos Gateway')
     .setDescription('API assíncrona para importação em massa e geração de boletos via OlympiaBank')
@@ -45,7 +63,7 @@ async function bootstrap() {
       },
       'bearer-key',
     )
-    .addServer(configService.get('API_BASE_URL', 'http://localhost:3000'), 'Servidor da API')
+    .addServer(swaggerBaseUrl, isProduction ? 'Servidor de Produção' : 'Servidor Local')
     .setContact(
       'Suporte Técnico',
       'https://github.com/seu-usuario/api-boletos-gateway',

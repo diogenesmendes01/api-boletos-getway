@@ -125,6 +125,7 @@ MAX_CONCURRENCY=12
 MAX_RETRIES=5
 
 # ===== OUTROS =====
+API_BASE_URL=https://api.seu-dominio.com
 CORS_ORIGINS=https://seu-frontend.com
 ```
 
@@ -144,9 +145,35 @@ Authorization: Bearer abc123xyz
 
 ### Base URL
 ```
-Produção: https://seu-dominio.com/v1
+Produção: https://api.envio-boleto.olympiabank.xyz/v1
 Desenvolvimento: http://localhost:3000/v1
-Swagger: http://localhost:3000/docs
+Swagger: 
+  - Produção: https://api.envio-boleto.olympiabank.xyz/docs
+  - Desenvolvimento: http://localhost:3000/docs
+```
+
+### 🔐 **POST /v1/auth/login** - Login do Usuário
+
+**Body:**
+```json
+{
+  "email": "usuario@empresa.com",
+  "olympiaToken": "seu_token_olympia"
+}
+```
+
+**Response:**
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": "123e4567-e89b-12d3-a456-426614174000",
+  "username": "usuario@empresa.com",
+  "email": "usuario@empresa.com",
+  "companyName": "Empresa ABC LTDA",
+  "companyDocument": "12.345.678/0001-90",
+  "expiresAt": "2024-12-31T23:59:59.000Z",
+  "message": "Login realizado com sucesso"
+}
 ```
 
 ### 🔄 **POST /v1/imports** - Upload de Arquivo
@@ -154,7 +181,7 @@ Swagger: http://localhost:3000/docs
 **Headers:**
 ```json
 {
-  \"Authorization\": \"Bearer seu_token\",
+  \"Authorization\": \"Bearer seu_jwt_token\",
   \"Content-Type\": \"multipart/form-data\"
 }
 ```
@@ -162,7 +189,7 @@ Swagger: http://localhost:3000/docs
 **Body:**
 ```bash
 curl -X POST \"http://localhost:3000/v1/imports\" \\
-  -H \"Authorization: Bearer seu_token\" \\
+  -H \"Authorization: Bearer seu_jwt_token\" \\
   -F \"file=@boletos.csv\" \\
   -F \"webhookUrl=https://sua-api.com/webhook\"
 ```
