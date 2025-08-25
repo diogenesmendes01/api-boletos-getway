@@ -7,6 +7,8 @@ on:
       - main
       - master
       - develop
+    tags:
+      - 'v*.*.*'
   pull_request:
     branches:
       - main
@@ -14,19 +16,20 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: diogenesmendes01/api-boletos-getway   # Deve bater com o 'image:' do seu compose
+  IMAGE_NAME: ${{ github.repository_owner }}/api-boletos-getway
   VPS_IP: 168.231.92.229
   PROJECT_DIR: /opt/api-boletos-getway
-  COMPOSE_REMOTE_PATH: /opt/api-boletos-getway/docker-compose.prod.yml
 
 jobs:
   test:
-    name: Testes
+    name: Tests and Quality Check
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Para versionamento semântico
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,25 +37,103 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Instalar dependências
-        run: npm ci || npm install
+        run: npm ci
+
+      - name: Executar Linter
+        run: npm run lint
 
       - name: Executar testes
-        run: npm test || echo "Testes não configurados"
-        continue-on-error: true
+        run: |
+          if npm test; then
+            echo "✅ Testes passaram com sucesso"
+          else
+            echo "::error::Testes falharam - verifique os erros acima"
+            exit 1
+          fi
 
-      - name: Build do projeto local (opcional)
-        run: npm run build || echo "Build será feito na imagem Docker"
+      - name: Build do projeto
+        run: |
+          npm run build
+          echo "✅ Build concluído com sucesso"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: |
+            coverage/
+            test-results/
+          retention-days: 7
+
+  version:
+    name: Generate Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version
+        id: version
+        run: |
+          # Se for uma tag semântica, usa ela
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            echo "🏷️ Tag semântica detectada: ${VERSION}"
+          # Se for main/master, usa latest
+          elif [[ "${{ github.ref }}" == refs/heads/main ]] || [[ "${{ github.ref }}" == refs/heads/master ]]; then
+            VERSION="latest"
+            echo "🌿 Branch principal: ${VERSION}"
+          # Para outras branches, usa o nome da branch + short SHA
+          else
+            BRANCH=${GITHUB_REF#refs/heads/}
+            SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
+            VERSION="${BRANCH}-${SHORT_SHA}"
+            echo "🌿 Branch de desenvolvimento: ${VERSION}"
+          fi
+          
+          # Validação de versão semântica
+          if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "✅ Versão semântica válida: ${VERSION}"
+            SEMVER_MAJOR=$(echo $VERSION | cut -d. -f1 | sed 's/v//')
+            SEMVER_MINOR=$(echo $VERSION | cut -d. -f2)
+            SEMVER_PATCH=$(echo $VERSION | cut -d. -f3)
+            
+            # Gerar tags adicionais para compatibilidade
+            echo "major=${SEMVER_MAJOR}" >> $GITHUB_OUTPUT
+            echo "minor=${SEMVER_MAJOR}.${SEMVER_MINOR}" >> $GITHUB_OUTPUT
+            echo "patch=${SEMVER_PATCH}" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "📦 Version: ${VERSION}"
 
   build-and-push:
-    name: Build e Push Docker
-    needs: test
+    name: Build and Push Docker Image
+    needs: [test, version]
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
-
+    
     permissions:
       contents: read
       packages: write
+
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
 
     steps:
       - name: Checkout código
@@ -68,18 +149,34 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Metadata da imagem
+      - name: Check if image exists
+        id: check-image
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.version }}"
+          if docker manifest inspect ${IMAGE} > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⏩ Imagem já existe: ${IMAGE}"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "🆕 Nova imagem será criada: ${IMAGE}"
+          fi
+
+      - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
+            type=ref,event=pr
             type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ needs.version.outputs.version }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix={{branch}}-
 
-      - name: Build e Push
+      - name: Build and Push
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -91,93 +188,210 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             NODE_ENV=production
+            BUILD_VERSION=${{ needs.version.outputs.version }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            COMMIT_SHA=${{ github.sha }}
 
   deploy:
-    name: Deploy na VPS
-    needs: build-and-push
+    name: Deploy to Production
+    needs: [build-and-push, version]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    environment:
+      name: production
+      url: https://api.envio-boleto.olympiabank.xyz
 
     steps:
-      - name: Checkout código (para enviar o compose correto)
+      - name: Checkout código
         uses: actions/checkout@v4
 
-      - name: Enviar arquivos de deploy para a VPS
+      - name: Preparar arquivos de deploy
+        run: |
+          # Criar diretório temporário para deploy
+          mkdir -p deploy-package
+          
+          # Copiar arquivos necessários
+          cp docker-compose.prod.yml deploy-package/
+          cp -r scripts/ deploy-package/scripts/
+          
+          # Criar arquivo de versão
+          echo "${{ needs.version.outputs.version }}" > deploy-package/VERSION
+          echo "${{ github.sha }}" > deploy-package/COMMIT
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > deploy-package/DEPLOY_TIME
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ env.VPS_IP }} >> ~/.ssh/known_hosts
+
+      - name: Enviar arquivos de deploy
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ env.VPS_IP }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "docker-compose.prod.yml"
+          source: "deploy-package/*"
           target: "${{ env.PROJECT_DIR }}"
           overwrite: true
-          strip_components: 0
+          strip_components: 1
 
-      - name: Enviar scripts para pasta scripts/
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ env.VPS_IP }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          source: "scripts/deploy-prod.sh,scripts/debug-prod.sh,scripts/check-config-prod.sh"
-          target: "${{ env.PROJECT_DIR }}/scripts/"
-          overwrite: true
-          strip_components: 0
-
-      - name: Deploy via SSH
+      - name: Backup atual antes do deploy
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ env.VPS_IP }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: 22
           script: |
             set -euo pipefail
+            
+            BACKUP_DIR="${{ env.PROJECT_DIR }}/backups/$(date +%Y%m%d_%H%M%S)"
+            mkdir -p "${BACKUP_DIR}"
+            
+            # Salvar versão atual
+            if docker ps --format "{{.Names}}" | grep -q "api-boleto-olympia"; then
+              docker inspect api-boleto-olympia --format='{{.Config.Image}}' > "${BACKUP_DIR}/previous_version.txt" || true
+              docker logs --tail 1000 api-boleto-olympia > "${BACKUP_DIR}/last_logs.txt" 2>&1 || true
+            fi
+            
+            echo "✅ Backup criado em ${BACKUP_DIR}"
 
+      - name: Deploy Application
+        id: deploy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            
             echo "================================================"
-            echo "🚀 INICIANDO DEPLOY - API BOLETOS GATEWAY"
+            echo "🚀 INICIANDO DEPLOY AUTOMATIZADO"
+            echo "📦 Versão: ${{ needs.version.outputs.version }}"
+            echo "🔧 Commit: ${{ github.sha }}"
             echo "================================================"
+            
+            cd ${{ env.PROJECT_DIR }}
+            
+            # Garantir permissões dos scripts
+            chmod +x scripts/*.sh
+            
+            # Executar deploy com a nova versão
+            export DEPLOY_VERSION="${{ needs.version.outputs.version }}"
+            export DEPLOY_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${DEPLOY_VERSION}"
+            
+            # Login no registry (se necessário)
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Executar script de deploy otimizado
+            ./scripts/deploy-prod.sh
 
-            PROJECT_DIR="/opt/api-boletos-getway"
-            COMPOSE_FILE="${PROJECT_DIR}/docker-compose.prod.yml"
-
-            echo "📁 Garantindo diretórios..."
-            mkdir -p "${PROJECT_DIR}"
-            cd "${PROJECT_DIR}"
-
-            echo "🔎 Verificando compose recebido..."
-            test -f "${COMPOSE_FILE}" || { echo "❌ Compose não encontrado em ${COMPOSE_FILE}"; exit 1; }
-
-            echo "🔐 Login no GHCR (se houver token dedicado)..."
-            if [ -n "${GHCR_TOKEN:-}" ]; then
-              echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR:-ci}" --password-stdin
+      - name: Health Check
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            
+            echo "🏥 Executando health checks..."
+            
+            cd ${{ env.PROJECT_DIR }}
+            
+            # Usar script de health check inteligente
+            if [ -f "scripts/health-check.sh" ]; then
+              chmod +x scripts/health-check.sh
+              ./scripts/health-check.sh quick
+            else
+              echo "⚠️ Script de health check não encontrado, usando método padrão"
+              
+              # Fallback para método anterior
+              MAX_ATTEMPTS=24
+              ATTEMPT=0
+              
+              while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+                if curl -f -s "http://localhost:3001/v1/health" > /dev/null; then
+                  echo "✅ Aplicação está saudável!"
+                  curl -s "http://localhost:3001/v1/health" | jq '.' || true
+                  exit 0
+                fi
+                
+                ATTEMPT=$((ATTEMPT + 1))
+                echo "⏳ Tentativa $ATTEMPT/$MAX_ATTEMPTS - Aguardando aplicação..."
+                sleep 5
+              done
+              
+              echo "❌ Aplicação não respondeu após 2 minutos"
+              exit 1
             fi
 
-            echo "🔗 Garantindo rede externa 'proxy-network'..."
-            # Remove rede se existir para evitar conflitos
-            docker network rm proxy-network 2>/dev/null || true
-            docker network create proxy-network || true
-
-            echo "🛑 Parando stack anterior (se houver)..."
-            docker compose -f "${COMPOSE_FILE}" down --remove-orphans || true
-
-            echo "🧹 LIMPEZA COMPLETA - Removendo containers conflitantes..."
-            # Remove containers por nome para evitar conflitos
-            docker rm -f api-boleto-olympia 2>/dev/null || true
-            docker rm -f redis-boleto 2>/dev/null || true
+      - name: Rollback on Failure
+        if: failure() && steps.deploy.outcome == 'failure'
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            echo "🔄 INICIANDO ROLLBACK..."
+            cd ${{ env.PROJECT_DIR }}
             
-            # Remove containers órfãos que possam estar usando os nomes
-            docker container prune -f || true
-            
-            # Remove imagens antigas para liberar espaço
-            docker image prune -f || true
-            
-            # Remove volumes órfãos que possam estar causando conflitos
-            docker volume prune -f || true
+            # Executar script de rollback
+            if [ -f scripts/rollback.sh ]; then
+              ./scripts/rollback.sh
+            else
+              echo "⚠️ Script de rollback não encontrado"
+              # Tentar reverter para última versão conhecida
+              docker compose -f docker-compose.prod.yml down
+              docker compose -f docker-compose.prod.yml up -d
+            fi
 
-            echo "📦 Pull das imagens definidas no seu compose..."
-            docker compose -f "${COMPOSE_FILE}" pull || true
+      - name: Notify Deployment Status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deploy realizado com sucesso!"
+            echo "📦 Versão: ${{ needs.version.outputs.version }}"
+            echo "🌐 URL: https://api.envio-boleto.olympiabank.xyz"
+          else
+            echo "❌ Deploy falhou - verifique os logs"
+          fi
 
-            echo "🚀 Executando script de deploy otimizado..."
-            chmod +x "${PROJECT_DIR}/scripts/deploy-prod.sh"
-            "${PROJECT_DIR}/scripts/deploy-prod.sh"
+  cleanup:
+    name: Cleanup Old Resources
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - name: Cleanup old images on VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            echo "🧹 Limpando recursos antigos..."
+            
+            # Manter apenas as últimas 3 imagens
+            docker images ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} --format "{{.Tag}}\t{{.ID}}" | \
+              tail -n +4 | awk '{print $2}' | xargs -r docker rmi -f || true
+            
+            # Limpar containers parados
+            docker container prune -f
+            
+            # Limpar imagens não utilizadas (mas preservar volumes)
+            docker image prune -f
+            
+            # Limpar logs antigos (mais de 7 dias)
+            find ${{ env.PROJECT_DIR }}/logs -type f -mtime +7 -delete 2>/dev/null || true
+            
+            # Limpar backups antigos (mais de 30 dias)
+            find ${{ env.PROJECT_DIR }}/backups -type d -mtime +30 -exec rm -rf {} + 2>/dev/null || true
+            
+            echo "✅ Limpeza concluída"
