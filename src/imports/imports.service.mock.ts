@@ -12,7 +12,7 @@ export class MockImportsService {
 
   async getImportStatus(_id: string) {
     return {
-      id,
+      id: _id,
       status: 'processing',
       filename: 'demo-file.csv',
       createdAt: new Date().toISOString(),
@@ -25,8 +25,8 @@ export class MockImportsService {
         error: 5,
       },
       links: {
-        results: `https://api.exemplo.com/v1/imports/${id}/results.csv`,
-        errors: `https://api.exemplo.com/v1/imports/${id}/errors.csv`,
+        results: `https://api.exemplo.com/v1/imports/${_id}/results.csv`,
+        errors: `https://api.exemplo.com/v1/imports/${_id}/errors.csv`,
       },
     };
   }

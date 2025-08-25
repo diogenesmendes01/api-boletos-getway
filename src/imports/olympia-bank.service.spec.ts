@@ -48,7 +48,7 @@ describe('OlympiaBankService', () => {
 
     service = module.get<OlympiaBankService>(OlympiaBankService);
     httpService = module.get<HttpService>(HttpService);
-    configService = module.get<ConfigService>(ConfigService);
+    // configService = module.get<ConfigService>(ConfigService);
 
     mockConfigService.get.mockImplementation((key: string) => {
       const config = {

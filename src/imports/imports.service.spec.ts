@@ -77,9 +77,9 @@ describe('ImportsService', () => {
     importRowRepository = module.get<Repository<ImportRow>>(
       getRepositoryToken(ImportRow),
     );
-    transactionRepository = module.get<Repository<Transaction>>(
-      getRepositoryToken(Transaction),
-    );
+    // transactionRepository = module.get<Repository<Transaction>>(
+    //   getRepositoryToken(Transaction),
+    // );
     importQueue = module.get<Queue>(getQueueToken('import-queue'));
     fileProcessorService =
       module.get<FileProcessorService>(FileProcessorService);

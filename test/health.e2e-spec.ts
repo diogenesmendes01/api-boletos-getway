@@ -3,7 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { getConnectionToken } from '@nestjs/typeorm';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { Connection } from 'typeorm';
+// import { Connection } from 'typeorm';
 
 describe('HealthController (e2e)', () => {
   let app: INestApplication;
@@ -24,7 +24,7 @@ describe('HealthController (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('v1');
 
-    connection = moduleFixture.get<Connection>(getConnectionToken());
+    // connection = moduleFixture.get<Connection>(getConnectionToken());
 
     await app.init();
   });
