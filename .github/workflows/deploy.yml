@@ -143,27 +143,53 @@ jobs:
             fi
 
             echo "🔗 Garantindo rede externa 'proxy-network'..."
+            # Remove rede se existir para evitar conflitos
+            docker network rm proxy-network 2>/dev/null || true
             docker network create proxy-network || true
 
             echo "🛑 Parando stack anterior (se houver)..."
             docker compose -f "${COMPOSE_FILE}" down --remove-orphans || true
 
-            echo "🪓 Removendo container por nome (se sobrou)..."
+            echo "🧹 LIMPEZA COMPLETA - Removendo containers conflitantes..."
+            # Remove containers por nome para evitar conflitos
+            docker rm -f api-boleto-olympia 2>/dev/null || true
             docker rm -f redis-boleto 2>/dev/null || true
             
+            # Remove containers órfãos que possam estar usando os nomes
+            docker container prune -f || true
+            
+            # Remove imagens antigas para liberar espaço
+            docker image prune -f || true
+            
+            # Remove volumes órfãos que possam estar causando conflitos
+            docker volume prune -f || true
+
             echo "📦 Pull das imagens definidas no seu compose..."
             docker compose -f "${COMPOSE_FILE}" pull || true
 
             echo "🚀 Subindo stack com seu compose..."
             docker compose -f "${COMPOSE_FILE}" up -d --force-recreate --remove-orphans
 
-            echo "⏳ Aguardando inicialização (20s)..."
-            sleep 20
+            echo "⏳ Aguardando inicialização (30s)..."
+            sleep 30
 
             echo "🔍 Containers em execução (relacionados):"
             docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | (grep -E "api-boleto|postgres|redis" || true)
 
+            echo "🏥 Verificando saúde dos containers..."
+            # Verifica se os containers estão rodando
+            if ! docker ps --format "{{.Names}}" | grep -q "api-boleto-olympia"; then
+              echo "❌ Container api-boleto-olympia não está rodando!"
+              docker logs --tail 100 api-boleto-olympia || true
+              exit 1
+            fi
+
+            if ! docker ps --format "{{.Names}}" | grep -q "redis-boleto"; then
+              echo "❌ Container redis-boleto não está rodando!"
+              exit 1
+            fi
+
             echo "📋 Últimos logs do api-boleto-olympia:"
             docker logs --tail 80 api-boleto-olympia || true
 
-            echo "✅ Deploy concluído."
+            echo "✅ Deploy concluído com sucesso!"
