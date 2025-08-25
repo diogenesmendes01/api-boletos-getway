@@ -97,6 +97,43 @@ npm run start:worker
 
 ### 🔑 Variáveis de Ambiente
 
+#### 🏗️ **Desenvolvimento**
+```bash
+# Copie o arquivo de exemplo
+cp env.development.example .env.development
+
+# Configure as variáveis para seu ambiente local
+NODE_ENV=development
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=olympia_app
+DB_PASSWORD=sua_senha_local
+DB_DATABASE=imports_olympia
+REDIS_URL=redis://localhost:6379
+```
+
+#### 🚀 **Produção**
+```bash
+# Copie o arquivo de exemplo
+cp env.production.example .env.production
+
+# Configure as variáveis para produção
+NODE_ENV=production
+DB_HOST=postgres-olympia
+DB_PORT=5432
+DB_USERNAME=olympia_app
+DB_PASSWORD=V/aMMGypweFPSlGivTdcaC44zzEZDfuv
+DB_DATABASE=boleto_db
+REDIS_URL=redis://redis-boleto:6379
+```
+
+#### 📋 **Configuração Automática por Ambiente**
+A aplicação detecta automaticamente o ambiente através da variável `NODE_ENV`:
+
+- **`development`**: Logging detalhado, sem SSL, configurações locais
+- **`production`**: Logging otimizado, SSL habilitado, configurações de produção
+- **`test`**: Configurações específicas para testes
+
 ```bash
 # ===== APLICAÇÃO =====
 NODE_ENV=production

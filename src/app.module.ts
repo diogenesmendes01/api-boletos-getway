@@ -25,20 +25,25 @@ import { Boleto } from './entities/boleto.entity';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule, LoggerModule],
       useFactory: (configService: ConfigService, loggerService: LoggerService) => {
+        const isProduction = configService.get('NODE_ENV') === 'production';
+        
+        // NÃO usar URL - usar variáveis individuais que funcionam
         const config = {
           type: 'postgres' as const,
-          url: configService.get('DATABASE_URL') || configService.get('POSTGRES_URL'),
-          host: configService.get('DB_HOST'),
+          host: configService.get('DB_HOST') || 'postgres-olympia',
           port: parseInt(configService.get('DB_PORT') || '5432'),
-          username: configService.get('DB_USERNAME'),
-          password: configService.get('DB_PASSWORD'),
-          database: configService.get('DB_DATABASE'),
+          username: configService.get('DB_USERNAME') || 'olympia_app', 
+          password: configService.get('DB_PASSWORD') || 'V/aMMGypweFPSlGivTdcaC44zzEZDfuv',
+          database: configService.get('DB_DATABASE') || 'boleto_db',
           entities: [Import, ImportRow, Transaction, Empresa, Boleto],
           synchronize: false,
-          logging: process.env.NODE_ENV === 'development',
+          logging: false,
+          ssl: isProduction ? { rejectUnauthorized: false } : false, // SSL apenas em produção
         };
 
         loggerService.info('Database connection configured', {
+          service: 'api-boletos-gateway',
+          environment: isProduction ? 'production' : 'development',
           host: config.host,
           port: config.port,
           database: config.database,
@@ -54,15 +59,22 @@ import { Boleto } from './entities/boleto.entity';
     BullModule.forRootAsync({
       imports: [ConfigModule, LoggerModule],
       useFactory: (configService: ConfigService, loggerService: LoggerService) => {
+        const isProduction = configService.get('NODE_ENV') === 'production';
         const redisUrl = configService.get('REDIS_URL');
         
         loggerService.info('Redis connection configured', {
+          service: 'api-boletos-gateway',
+          environment: isProduction ? 'production' : 'development',
           redisUrl: redisUrl ? 'configured' : 'not_configured',
           type: 'redis_config',
         });
 
         return {
           redis: redisUrl,
+          defaultJobOptions: {
+            removeOnComplete: isProduction ? 100 : 10, // Manter menos jobs em desenvolvimento
+            removeOnFail: isProduction ? 50 : 5,
+          },
         };
       },
       inject: [ConfigService, LoggerService],
