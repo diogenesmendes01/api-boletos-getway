@@ -6,12 +6,20 @@ echo "================================================"
 echo "🔍 DEBUG PRODUÇÃO - API BOLETOS GATEWAY"
 echo "================================================"
 
-# Configurações
-PROJECT_DIR="${HOME}/projetos/api-boleto"
+# Configurações - CAMINHO CORRETO DA VPS
+PROJECT_DIR="/opt/api-boletos-getway"
 COMPOSE_FILE="${PROJECT_DIR}/docker-compose.prod.yml"
 
 echo "📁 Diretório do projeto: ${PROJECT_DIR}"
 echo "📄 Arquivo compose: ${COMPOSE_FILE}"
+echo "🏠 HOME do usuário: ${HOME}"
+echo "👤 Usuário atual: $(whoami)"
+
+# Verificar se o diretório existe
+if [ ! -d "${PROJECT_DIR}" ]; then
+    echo "❌ Diretório ${PROJECT_DIR} não existe!"
+    exit 1
+fi
 
 # Verificar se o compose existe
 if [ ! -f "${COMPOSE_FILE}" ]; then

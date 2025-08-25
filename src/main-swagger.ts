@@ -35,7 +35,7 @@ async function bootstrap() {
     .addServer('http://localhost:8080', 'Servidor da API')
     .setContact(
       'Suporte Técnico',
-      'https://github.com/seu-usuario/api-boletos-gateway',
+      'https://github.com/diogenesmendes01/api-boletos-getway',
       'suporte@exemplo.com'
     )
     .setLicense('MIT', 'https://opensource.org/licenses/MIT')

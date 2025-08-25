@@ -2,7 +2,7 @@
 
 ## 🎯 INFORMAÇÕES DO PROJETO
 
-- **Repositório GitHub**: https://github.com/diogenesmendes01/api-boleto-gatway
+- **Repositório GitHub**: https://github.com/diogenesmendes01/api-boletos-getway
 - **VPS IP**: 168.231.92.229
 - **Domínio Backend**: https://api.envio-boleto.olympiabank.xyz
 - **Domínio Frontend**: https://envio-boleto.olympiabank.xyz
@@ -113,7 +113,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: diogenesmendes01/api-boleto-gatway
+  IMAGE_NAME: diogenesmendes01/api-boletos-getway
   VPS_IP: 168.231.92.229
 
 jobs:
@@ -210,7 +210,7 @@ jobs:
             echo "🚀 Iniciando deploy..."
             
             # Navegar para pasta do projeto
-            cd ~/projetos/api-boleto || mkdir -p ~/projetos/api-boleto && cd ~/projetos/api-boleto
+            cd /opt/api-boletos-getway || mkdir -p /opt/api-boletos-getway && cd /opt/api-boletos-getway
             
             # Criar docker-compose.prod.yml se não existir
             if [ ! -f docker-compose.prod.yml ]; then
@@ -219,7 +219,7 @@ jobs:
             
             services:
               api-boleto:
-                image: ghcr.io/diogenesmendes01/api-boleto-gatway:latest
+                image: ghcr.io/diogenesmendes01/api-boletos-getway:latest
                 container_name: api-boleto-olympia
                 restart: always
                 ports:
@@ -273,11 +273,11 @@ jobs:
             chmod 777 logs uploads
             
             # Fazer backup do container atual (se existir)
-            docker tag ghcr.io/diogenesmendes01/api-boleto-gatway:latest ghcr.io/diogenesmendes01/api-boleto-gatway:backup 2>/dev/null || true
+            docker tag ghcr.io/diogenesmendes01/api-boletos-getway:latest ghcr.io/diogenesmendes01/api-boletos-getway:backup 2>/dev/null || true
             
             # Pull da nova imagem
             echo "📦 Baixando nova imagem..."
-            docker pull ghcr.io/diogenesmendes01/api-boleto-gatway:latest
+            docker pull ghcr.io/diogenesmendes01/api-boletos-getway:latest
             
             # Parar container antigo
             echo "🛑 Parando container antigo..."
@@ -308,7 +308,7 @@ jobs:
               echo "✅ Deploy concluído com sucesso!"
             else
               echo "❌ Container não está rodando! Tentando rollback..."
-              docker tag ghcr.io/diogenesmendes01/api-boleto-gatway:backup ghcr.io/diogenesmendes01/api-boleto-gatway:latest 2>/dev/null || true
+              docker tag ghcr.io/diogenesmendes01/api-boletos-getway:backup ghcr.io/diogenesmendes01/api-boletos-getway:latest 2>/dev/null || true
               docker compose -f docker-compose.prod.yml up -d
               exit 1
             fi
@@ -554,7 +554,7 @@ git push origin main
 ## 📞 SUPORTE
 
 Se algum passo falhar, verificar:
-1. Logs do GitHub Actions: https://github.com/diogenesmendes01/api-boleto-gatway/actions
+1. Logs do GitHub Actions: https://github.com/diogenesmendes01/api-boletos-getway/actions
 2. Logs do container: `docker logs api-boleto-olympia`
 3. Conexão com banco: `docker exec api-boleto-olympia ping postgres-olympia`
 

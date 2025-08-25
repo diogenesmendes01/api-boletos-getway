@@ -6,13 +6,23 @@ echo "================================================"
 echo "🚀 DEPLOY PRODUÇÃO - API BOLETOS GATEWAY"
 echo "================================================"
 
-# Configurações
-PROJECT_DIR="${HOME}/projetos/api-boleto"
+# Configurações - CAMINHO CORRETO DA VPS
+PROJECT_DIR="/opt/api-boletos-getway"
 COMPOSE_FILE="${PROJECT_DIR}/docker-compose.prod.yml"
 BACKUP_DIR="${PROJECT_DIR}/backups/$(date +%Y%m%d_%H%M%S)"
 
 echo "📁 Diretório do projeto: ${PROJECT_DIR}"
 echo "📄 Arquivo compose: ${COMPOSE_FILE}"
+echo "🏠 HOME do usuário: ${HOME}"
+echo "👤 Usuário atual: $(whoami)"
+
+# Verificar se o diretório existe
+if [ ! -d "${PROJECT_DIR}" ]; then
+    echo "❌ Diretório ${PROJECT_DIR} não existe!"
+    echo "🔧 Criando diretório..."
+    sudo mkdir -p "${PROJECT_DIR}" || { echo "❌ Não foi possível criar o diretório"; exit 1; }
+    sudo chown $(whoami):$(whoami) "${PROJECT_DIR}" || echo "⚠️  Não foi possível alterar permissões"
+fi
 
 # Verificar se o compose existe
 if [ ! -f "${COMPOSE_FILE}" ]; then
@@ -26,6 +36,10 @@ mkdir -p "${BACKUP_DIR}"
 if [ -d "${PROJECT_DIR}/logs" ]; then
     cp -r "${PROJECT_DIR}/logs" "${BACKUP_DIR}/" || true
 fi
+
+# Verificar permissões do diretório
+echo "🔐 Verificando permissões do diretório..."
+ls -la "${PROJECT_DIR}" || echo "⚠️  Não foi possível listar o diretório"
 
 # Parar e remover containers existentes
 echo "🛑 Parando containers existentes..."

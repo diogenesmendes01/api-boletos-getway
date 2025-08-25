@@ -16,8 +16,8 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: diogenesmendes01/api-boletos-getway   # Deve bater com o 'image:' do seu compose
   VPS_IP: 168.231.92.229
-  PROJECT_DIR: ~/projetos/api-boleto
-  COMPOSE_REMOTE_PATH: ~/projetos/api-boleto/docker-compose.prod.yml
+  PROJECT_DIR: /opt/api-boletos-getway
+  COMPOSE_REMOTE_PATH: /opt/api-boletos-getway/docker-compose.prod.yml
 
 jobs:
   test:
@@ -109,7 +109,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "docker-compose.prod.yml,scripts/deploy-prod.sh,scripts/debug-prod.sh"
-          target: "${{ env.PROJECT_DIR }/"
+          target: "${{ env.PROJECT_DIR }}"
           overwrite: true
           strip_components: 0
 
@@ -127,8 +127,8 @@ jobs:
             echo "🚀 INICIANDO DEPLOY - API BOLETOS GATEWAY"
             echo "================================================"
 
-            PROJECT_DIR="${PROJECT_DIR:-${HOME}/projetos/api-boleto}"
-            COMPOSE_FILE="${COMPOSE_REMOTE_PATH:-${PROJECT_DIR}/docker-compose.prod.yml}"
+            PROJECT_DIR="/opt/api-boletos-getway"
+            COMPOSE_FILE="${PROJECT_DIR}/docker-compose.prod.yml"
 
             echo "📁 Garantindo diretórios..."
             mkdir -p "${PROJECT_DIR}"

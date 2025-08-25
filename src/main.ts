@@ -66,7 +66,7 @@ async function bootstrap() {
     .addServer(swaggerBaseUrl, isProduction ? 'Servidor de Produção' : 'Servidor Local')
     .setContact(
       'Suporte Técnico',
-      'https://github.com/seu-usuario/api-boletos-gateway',
+      'https://github.com/diogenesmendes01/api-boletos-getway',
       'suporte@exemplo.com'
     )
     .setLicense('MIT', 'https://opensource.org/licenses/MIT')

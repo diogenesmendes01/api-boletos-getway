@@ -60,7 +60,7 @@ API assíncrona robusta para importação em massa e geração de boletos via **
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/seu-usuario/api-boletos-gateway.git
+git clone https://github.com/diogenesmendes01/api-boletos-getway.git
 cd api-boletos-gateway
 
 # 2. Configure as variáveis de ambiente
@@ -618,7 +618,7 @@ chore: manutenção do código
 
 ## 📞 Suporte
 
-- **GitHub Issues:** [Reportar problemas](https://github.com/seu-usuario/api-boletos-gateway/issues)
+- **GitHub Issues:** [Reportar problemas](https://github.com/diogenesmendes01/api-boletos-getway/issues)
 - **Documentação:** Swagger UI disponível em `/docs`
 - **Logs:** Verifique `/app/logs/` em produção
 - **Health Check:** `GET /v1/health` para diagnóstico
@@ -634,7 +634,7 @@ Este projeto está licenciado sob a **MIT License** - veja o arquivo [LICENSE](L
 **🎯 API Boletos Gateway**  
 *Solução robusta e escalável para geração de boletos em massa*
 
-[![GitHub](https://img.shields.io/badge/GitHub-projeto-black?logo=github)](https://github.com/seu-usuario/api-boletos-gateway)
-[![Docker Hub](https://img.shields.io/badge/Docker-image-blue?logo=docker)](https://hub.docker.com/r/seu-usuario/api-boletos-gateway)
+[![GitHub](https://img.shields.io/badge/GitHub-projeto-black?logo=github)](https://github.com/diogenesmendes01/api-boletos-getway)
+[![Docker Hub](https://img.shields.io/badge/Docker-image-blue?logo=docker)](https://hub.docker.com/r/diogenesmendes01/api-boletos-getway)
 
 </div>
