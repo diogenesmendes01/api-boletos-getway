@@ -102,14 +102,14 @@ jobs:
       - name: Checkout código (para enviar o compose correto)
         uses: actions/checkout@v4
 
-      - name: Enviar docker-compose.prod.yml para a VPS
+      - name: Enviar arquivos de deploy para a VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ env.VPS_IP }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "docker-compose.prod.yml"
-          target: "${{ env.PROJECT_DIR }}/"
+          source: "docker-compose.prod.yml,scripts/deploy-prod.sh,scripts/debug-prod.sh"
+          target: "${{ env.PROJECT_DIR }/"
           overwrite: true
           strip_components: 0
 
@@ -167,29 +167,6 @@ jobs:
             echo "📦 Pull das imagens definidas no seu compose..."
             docker compose -f "${COMPOSE_FILE}" pull || true
 
-            echo "🚀 Subindo stack com seu compose..."
-            docker compose -f "${COMPOSE_FILE}" up -d --force-recreate --remove-orphans
-
-            echo "⏳ Aguardando inicialização (30s)..."
-            sleep 30
-
-            echo "🔍 Containers em execução (relacionados):"
-            docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' | (grep -E "api-boleto|postgres|redis" || true)
-
-            echo "🏥 Verificando saúde dos containers..."
-            # Verifica se os containers estão rodando
-            if ! docker ps --format "{{.Names}}" | grep -q "api-boleto-olympia"; then
-              echo "❌ Container api-boleto-olympia não está rodando!"
-              docker logs --tail 100 api-boleto-olympia || true
-              exit 1
-            fi
-
-            if ! docker ps --format "{{.Names}}" | grep -q "redis-boleto"; then
-              echo "❌ Container redis-boleto não está rodando!"
-              exit 1
-            fi
-
-            echo "📋 Últimos logs do api-boleto-olympia:"
-            docker logs --tail 80 api-boleto-olympia || true
-
-            echo "✅ Deploy concluído com sucesso!"
+            echo "🚀 Executando script de deploy otimizado..."
+            chmod +x "${PROJECT_DIR}/deploy-prod.sh"
+            "${PROJECT_DIR}/deploy-prod.sh"

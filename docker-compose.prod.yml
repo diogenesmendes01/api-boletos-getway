@@ -5,7 +5,7 @@ services:
     image: ghcr.io/diogenesmendes01/api-boletos-getway:latest
     container_name: api-boleto-olympia
     restart: always
-    command: ["sh", "-c", "npm run typeorm migration:run && node dist/src/main.js"]
+    command: ["sh", "-c", "sleep 10 && npm run typeorm migration:run && node dist/src/main.js"]
     ports:
       - "127.0.0.1:3001:3000"
     environment:
@@ -19,41 +19,20 @@ services:
       DB_PASSWORD: V/aMMGypweFPSlGivTdcaC44zzEZDfuv
       DB_DATABASE: boleto_db
       
-      # ===== TYPEORM =====
-      TYPEORM_CONNECTION: postgres
-      TYPEORM_HOST: postgres-olympia
-      TYPEORM_PORT: "5432"
-      TYPEORM_USERNAME: olympia_app
-      TYPEORM_PASSWORD: V/aMMGypweFPSlGivTdcaC44zzEZDfuv
-      TYPEORM_DATABASE: boleto_db
-      TYPEORM_SYNCHRONIZE: "false"
-      TYPEORM_LOGGING: "true"
-      TYPEORM_ENTITIES: dist/src/entities/*.entity.js
-      TYPEORM_MIGRATIONS: dist/src/migrations/*.js
-      TYPEORM_MIGRATIONS_DIR: src/migrations
-      TYPEORM_ENTITIES_DIR: src/entities
-      TYPEORM_MIGRATIONS_TABLE_NAME: migrations
-      TYPEORM_MIGRATIONS_RUN: "true"
-      
-      # ===== CONEXÃO COMPLETA =====
-      DATABASE_URL: postgresql://olympia_app:V/aMMGypweFPSlGivTdcaC44zzEZDfuv@postgres-olympia:5432/boleto_db
-      
-      # ===== REDIS (IMPORTANTE!) =====
+      # ===== REDIS =====
       REDIS_URL: redis://redis-boleto:6379
       
       # ===== SEGURANÇA =====
       JWT_SECRET: jwt_olympia_secret_change_this_2024
-      API_KEY: api_key_olympia_change_this_2024
+      JWT_EXPIRES_IN: 24h
       
       # ===== OLYMPIA BANK =====
       OLYMPIA_BASE_URL: https://api.olympiabank.net
-      # OLYMPIA_TOKEN não é mais necessário aqui
-      # Cada usuário fornece seu próprio token no login
       
       # ===== OUTROS =====
       API_BASE_URL: https://api.envio-boleto.olympiabank.xyz
       CORS_ORIGINS: https://envio-boleto.olympiabank.xyz
-      LOG_LEVEL: debug
+      LOG_LEVEL: info
       
     networks:
       - proxy-network
@@ -64,13 +43,11 @@ services:
       redis-boleto:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  # BANCO DE DADOS - JÁ EXISTE NA VPS
-  # postgres-olympia container já está rodando
+      start_period: 60s
 
   # REDIS
   redis-boleto:
