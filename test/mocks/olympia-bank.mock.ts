@@ -34,12 +34,14 @@ export interface MockBoletoResponse {
 export class OlympiaBankMock {
   private static requestCount = 0;
 
-  static createSuccessResponse(request: MockBoletoRequest): AxiosResponse<MockBoletoResponse> {
+  static createSuccessResponse(
+    _request: MockBoletoRequest,
+  ): AxiosResponse<MockBoletoResponse> {
     this.requestCount++;
-    
+
     const transactionId = `TXN${Date.now()}${this.requestCount}`;
     const boletoCode = `BOL${this.requestCount.toString().padStart(6, '0')}`;
-    
+
     return {
       data: {
         idTransaction: transactionId,
@@ -153,17 +155,17 @@ export class OlympiaBankMock {
     if (!request.client?.document) return false;
     if (!request.client?.email) return false;
     if (!request.client?.telefone) return false;
-    
+
     // Validar formato do documento
     const document = request.client.document;
     if (document.length !== 11 && document.length !== 14) return false;
-    
+
     // Validar email básico
     if (!request.client.email.includes('@')) return false;
-    
+
     // Validar telefone básico
     if (request.client.telefone.length < 10) return false;
-    
+
     return true;
   }
 
@@ -176,7 +178,9 @@ export class OlympiaBankMock {
   }
 
   // Simulação de cenários específicos baseados nos dados
-  static createResponseBasedOnDocument(document: string): AxiosResponse<MockBoletoResponse> | AxiosError {
+  static createResponseBasedOnDocument(
+    document: string,
+  ): AxiosResponse<MockBoletoResponse> | AxiosError {
     // Documentos que simulam diferentes cenários
     const scenarios = {
       // CPF que sempre falha com rate limit
@@ -223,19 +227,35 @@ export class OlympiaBankMock {
 }
 
 // Helper para criar um mock completo do HttpService
-export const createHttpServiceMock = (behavior: 'success' | 'rate-limit' | 'server-error' | 'custom' = 'success') => {
+export const createHttpServiceMock = (
+  behavior: 'success' | 'rate-limit' | 'server-error' | 'custom' = 'success',
+) => {
   return {
-    post: jest.fn().mockImplementation((url: string, data: MockBoletoRequest) => {
-      switch (behavior) {
-        case 'success':
-          return { toPromise: () => Promise.resolve(OlympiaBankMock.createSuccessResponse(data)) };
-        case 'rate-limit':
-          return { toPromise: () => Promise.reject(OlympiaBankMock.createRateLimitError()) };
-        case 'server-error':
-          return { toPromise: () => Promise.reject(OlympiaBankMock.createServerError()) };
-        default:
-          return { toPromise: () => Promise.resolve(OlympiaBankMock.createSuccessResponse(data)) };
-      }
-    }),
+    post: jest
+      .fn()
+      .mockImplementation((url: string, data: MockBoletoRequest) => {
+        switch (behavior) {
+          case 'success':
+            return {
+              toPromise: () =>
+                Promise.resolve(OlympiaBankMock.createSuccessResponse(data)),
+            };
+          case 'rate-limit':
+            return {
+              toPromise: () =>
+                Promise.reject(OlympiaBankMock.createRateLimitError()),
+            };
+          case 'server-error':
+            return {
+              toPromise: () =>
+                Promise.reject(OlympiaBankMock.createServerError()),
+            };
+          default:
+            return {
+              toPromise: () =>
+                Promise.resolve(OlympiaBankMock.createSuccessResponse(data)),
+            };
+        }
+      }),
   };
 };

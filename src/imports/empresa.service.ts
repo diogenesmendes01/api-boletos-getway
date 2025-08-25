@@ -23,7 +23,7 @@ export class EmpresaService {
   async findOrCreateEmpresa(empresaData: EmpresaData): Promise<Empresa> {
     // Tentar encontrar a empresa pelo CNPJ
     let empresa = await this.empresaRepository.findOne({
-      where: { cnpj: empresaData.cnpj }
+      where: { cnpj: empresaData.cnpj },
     });
 
     if (!empresa) {
@@ -42,7 +42,7 @@ export class EmpresaService {
 
   async findByCnpj(cnpj: string): Promise<Empresa | null> {
     return this.empresaRepository.findOne({
-      where: { cnpj }
+      where: { cnpj },
     });
   }
 
@@ -51,7 +51,10 @@ export class EmpresaService {
     return this.empresaRepository.save(empresa);
   }
 
-  async update(cnpj: string, empresaData: Partial<EmpresaData>): Promise<Empresa> {
+  async update(
+    cnpj: string,
+    empresaData: Partial<EmpresaData>,
+  ): Promise<Empresa> {
     await this.empresaRepository.update(cnpj, empresaData);
     const empresa = await this.findByCnpj(cnpj);
     if (!empresa) {
@@ -62,7 +65,7 @@ export class EmpresaService {
 
   async findAll(): Promise<Empresa[]> {
     return this.empresaRepository.find({
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 

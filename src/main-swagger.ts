@@ -5,11 +5,13 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppSwaggerModule);
-  
-  app.useGlobalPipes(new ValidationPipe({
-    transform: true,
-    whitelist: true,
-  }));
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+    }),
+  );
 
   app.setGlobalPrefix('v1');
   app.enableCors();
@@ -17,7 +19,9 @@ async function bootstrap() {
   // Configuração do Swagger
   const config = new DocumentBuilder()
     .setTitle('API Boletos Gateway')
-    .setDescription('API assíncrona para importação em massa e geração de boletos via OlympiaBank')
+    .setDescription(
+      'API assíncrona para importação em massa e geração de boletos via OlympiaBank',
+    )
     .setVersion('1.0.0')
     .addTag('imports', 'Endpoints para importação de arquivos CSV/XLSX')
     .addTag('health', 'Health checks e monitoramento')
@@ -36,7 +40,7 @@ async function bootstrap() {
     .setContact(
       'Suporte Técnico',
       'https://github.com/diogenesmendes01/api-boletos-getway',
-      'suporte@exemplo.com'
+      'suporte@exemplo.com',
     )
     .setLicense('MIT', 'https://opensource.org/licenses/MIT')
     .build();
@@ -53,9 +57,11 @@ async function bootstrap() {
 
   const port = 8080;
   await app.listen(port);
-  
-  console.log(`🚀 Swagger Demo running on port ${port}`);
-  console.log(`📖 Swagger documentation available at: http://localhost:${port}/docs`);
-  console.log(`⚠️  Demo mode - database connections disabled`);
+
+  // console.log(`🚀 Swagger Demo running on port ${port}`);
+  // console.log(
+  //   `📖 Swagger documentation available at: http://localhost:${port}/docs`,
+  // );
+  // console.log(`⚠️  Demo mode - database connections disabled`);
 }
 bootstrap();

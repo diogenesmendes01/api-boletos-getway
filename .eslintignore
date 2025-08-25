@@ -1,0 +1,38 @@
+# Dependências
+node_modules/
+dist/
+build/
+
+# Arquivos de configuração
+*.config.js
+*.config.ts
+ormconfig.*
+nest-cli.json
+
+# Arquivos de build
+*.d.ts
+*.js.map
+
+# Arquivos de teste
+coverage/
+.nyc_output/
+
+# Arquivos temporários
+*.tmp
+*.temp
+
+# Arquivos de log
+*.log
+logs/
+
+# Arquivos de upload
+uploads/
+
+# Arquivos de migração
+migrations/
+
+# Arquivos de worker
+worker/
+
+# Arquivos de exemplo
+examples/

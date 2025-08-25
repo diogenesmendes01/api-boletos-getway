@@ -1,6 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { HealthCheckResponseDto, LivenessResponseDto, ReadinessResponseDto } from './dto/health-response.dto';
+import {
+  HealthCheckResponseDto,
+  LivenessResponseDto,
+  ReadinessResponseDto,
+} from './dto/health-response.dto';
 
 @ApiTags('health')
 @Controller('health')
@@ -8,7 +12,8 @@ export class MockHealthController {
   @Get()
   @ApiOperation({
     summary: 'Health check completo',
-    description: 'Verifica o status geral da aplicação e dos serviços dependentes (banco de dados, Redis).',
+    description:
+      'Verifica o status geral da aplicação e dos serviços dependentes (banco de dados, Redis).',
   })
   @ApiResponse({
     status: 200,
@@ -29,7 +34,8 @@ export class MockHealthController {
   @Get('liveness')
   @ApiOperation({
     summary: 'Liveness probe',
-    description: 'Verifica se a aplicação está rodando. Usado por orchestradores como Kubernetes.',
+    description:
+      'Verifica se a aplicação está rodando. Usado por orchestradores como Kubernetes.',
   })
   @ApiResponse({
     status: 200,
@@ -43,7 +49,8 @@ export class MockHealthController {
   @Get('readiness')
   @ApiOperation({
     summary: 'Readiness probe',
-    description: 'Verifica se a aplicação está pronta para receber tráfego. Testa conectividade com banco de dados.',
+    description:
+      'Verifica se a aplicação está pronta para receber tráfego. Testa conectividade com banco de dados.',
   })
   @ApiResponse({
     status: 200,

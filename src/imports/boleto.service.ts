@@ -31,7 +31,7 @@ export class BoletoService {
   async create(boletoData: CreateBoletoData): Promise<Boleto> {
     const boleto = this.boletoRepository.create({
       ...boletoData,
-      status: boletoData.status || BoletoStatus.PENDENTE
+      status: boletoData.status || BoletoStatus.PENDENTE,
     });
     return this.boletoRepository.save(boleto);
   }
@@ -45,7 +45,10 @@ export class BoletoService {
     return boleto;
   }
 
-  async updateByNumeroBoleto(numeroBoleto: string, updateData: UpdateBoletoData): Promise<Boleto> {
+  async updateByNumeroBoleto(
+    numeroBoleto: string,
+    updateData: UpdateBoletoData,
+  ): Promise<Boleto> {
     await this.boletoRepository.update({ numeroBoleto }, updateData);
     const boleto = await this.findByNumeroBoleto(numeroBoleto);
     if (!boleto) {
@@ -57,14 +60,14 @@ export class BoletoService {
   async findById(id: string): Promise<Boleto | null> {
     return this.boletoRepository.findOne({
       where: { id },
-      relations: ['empresa']
+      relations: ['empresa'],
     });
   }
 
   async findByNumeroBoleto(numeroBoleto: string): Promise<Boleto | null> {
     return this.boletoRepository.findOne({
       where: { numeroBoleto },
-      relations: ['empresa']
+      relations: ['empresa'],
     });
   }
 
@@ -72,7 +75,7 @@ export class BoletoService {
     return this.boletoRepository.find({
       where: { importId },
       relations: ['empresa'],
-      order: { numeroLinha: 'ASC' }
+      order: { numeroLinha: 'ASC' },
     });
   }
 
@@ -80,7 +83,7 @@ export class BoletoService {
     return this.boletoRepository.find({
       where: { empresaCnpj },
       relations: ['empresa'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -88,7 +91,7 @@ export class BoletoService {
     return this.boletoRepository.find({
       where: { status },
       relations: ['empresa'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -101,34 +104,46 @@ export class BoletoService {
   }> {
     const [total, pendentes, gerados, pagos, erros] = await Promise.all([
       this.boletoRepository.count({ where: { importId } }),
-      this.boletoRepository.count({ where: { importId, status: BoletoStatus.PENDENTE } }),
-      this.boletoRepository.count({ where: { importId, status: BoletoStatus.GERADO } }),
-      this.boletoRepository.count({ where: { importId, status: BoletoStatus.PAGO } }),
-      this.boletoRepository.count({ where: { importId, status: BoletoStatus.ERRO } })
+      this.boletoRepository.count({
+        where: { importId, status: BoletoStatus.PENDENTE },
+      }),
+      this.boletoRepository.count({
+        where: { importId, status: BoletoStatus.GERADO },
+      }),
+      this.boletoRepository.count({
+        where: { importId, status: BoletoStatus.PAGO },
+      }),
+      this.boletoRepository.count({
+        where: { importId, status: BoletoStatus.ERRO },
+      }),
     ]);
 
     return { total, pendentes, gerados, pagos, erros };
   }
 
-  async markAsGerado(id: string, numeroBoleto: string, urlBoleto: string): Promise<Boleto> {
+  async markAsGerado(
+    id: string,
+    numeroBoleto: string,
+    urlBoleto: string,
+  ): Promise<Boleto> {
     return this.update(id, {
       numeroBoleto,
       urlBoleto,
-      status: BoletoStatus.GERADO
+      status: BoletoStatus.GERADO,
     });
   }
 
   async markAsErro(id: string, mensagemErro: string): Promise<Boleto> {
     return this.update(id, {
       status: BoletoStatus.ERRO,
-      mensagemErro
+      mensagemErro,
     });
   }
 
   async findAll(): Promise<Boleto[]> {
     return this.boletoRepository.find({
       relations: ['empresa'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 }

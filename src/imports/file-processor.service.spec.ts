@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FileProcessorService } from './file-processor.service';
 import * as fs from 'fs/promises';
-import * as path from 'path';
+// import * as path from 'path';
 
 jest.mock('fs/promises');
 
@@ -56,7 +56,9 @@ Maria Santos,11444777000161,Av. Brasil,456,Jardins,RJ,23456789,2000,31/12/2024`;
     });
 
     it('should throw error for unsupported file format', async () => {
-      await expect(service.parseFile('/tmp/test.txt')).rejects.toThrow('Unsupported file format');
+      await expect(service.parseFile('/tmp/test.txt')).rejects.toThrow(
+        'Unsupported file format',
+      );
     });
 
     it('should handle validation errors', async () => {
@@ -105,7 +107,7 @@ invalid,João Silva,invalid,11987654321,joao@test.com,2024-12-31`;
     });
 
     it('should parse decimal as reais to centavos', () => {
-      const amount = 15.50;
+      const amount = 15.5;
       const result = service['parseAmount'](amount);
       expect(result).toBe(1550);
     });

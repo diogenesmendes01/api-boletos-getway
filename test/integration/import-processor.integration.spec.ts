@@ -15,11 +15,11 @@ import { of } from 'rxjs';
 
 describe('ImportProcessor Integration', () => {
   let processor: ImportProcessor;
-  let importRepository: Repository<Import>;
-  let importRowRepository: Repository<ImportRow>;
-  let transactionRepository: Repository<Transaction>;
-  let olympiaBankService: OlympiaBankService;
-  let httpService: HttpService;
+  // let importRepository: Repository<Import>;
+  // let importRowRepository: Repository<ImportRow>;
+  // let transactionRepository: Repository<Transaction>;
+  // let olympiaBankService: OlympiaBankService;
+  // let httpService: HttpService;
 
   const mockImportRepository = {
     findOne: jest.fn(),
@@ -87,9 +87,15 @@ describe('ImportProcessor Integration', () => {
     }).compile();
 
     processor = module.get<ImportProcessor>(ImportProcessor);
-    importRepository = module.get<Repository<Import>>(getRepositoryToken(Import));
-    importRowRepository = module.get<Repository<ImportRow>>(getRepositoryToken(ImportRow));
-    transactionRepository = module.get<Repository<Transaction>>(getRepositoryToken(Transaction));
+    importRepository = module.get<Repository<Import>>(
+      getRepositoryToken(Import),
+    );
+    importRowRepository = module.get<Repository<ImportRow>>(
+      getRepositoryToken(ImportRow),
+    );
+    transactionRepository = module.get<Repository<Transaction>>(
+      getRepositoryToken(Transaction),
+    );
     olympiaBankService = module.get<OlympiaBankService>(OlympiaBankService);
     httpService = module.get<HttpService>(HttpService);
 
@@ -111,11 +117,12 @@ describe('ImportProcessor Integration', () => {
     jest.clearAllMocks();
   });
 
-  const createMockJob = (importId: string): Job<{ importId: string }> => ({
-    data: { importId },
-    id: 'job-123',
-    name: 'process-import',
-  } as Job<{ importId: string }>);
+  const createMockJob = (importId: string): Job<{ importId: string }> =>
+    ({
+      data: { importId },
+      id: 'job-123',
+      name: 'process-import',
+    }) as Job<{ importId: string }>;
 
   describe('processImport', () => {
     it('should process import with all successful rows', async () => {
@@ -161,21 +168,30 @@ describe('ImportProcessor Integration', () => {
 
       // Mock successful OlympiaBank responses
       mockHttpService.post.mockImplementation(() => {
-        return of(OlympiaBankMock.createSuccessResponse({
-          amount: 1500,
-          client: {
-            name: 'Test User',
-            document: '11144477735',
-            telefone: '5511987654321',
-            email: 'test@test.com',
-          },
-          utms: { utm_source: 'import', utm_medium: 'batch', utm_campaign: 'bulk' },
-          product: { name_product: 'Boleto', valor_product: '15.00' },
-          split: { user: 'default', value: '0' },
-        }));
+        return of(
+          OlympiaBankMock.createSuccessResponse({
+            amount: 1500,
+            client: {
+              name: 'Test User',
+              document: '11144477735',
+              telefone: '5511987654321',
+              email: 'test@test.com',
+            },
+            utms: {
+              utm_source: 'import',
+              utm_medium: 'batch',
+              utm_campaign: 'bulk',
+            },
+            product: { name_product: 'Boleto', valor_product: '15.00' },
+            split: { user: 'default', value: '0' },
+          }),
+        );
       });
 
-      mockTransactionRepository.create.mockImplementation((data) => ({ id: 'txn-123', ...data }));
+      mockTransactionRepository.create.mockImplementation(data => ({
+        id: 'txn-123',
+        ...data,
+      }));
       mockTransactionRepository.save.mockResolvedValue({});
 
       const job = createMockJob(importId);
@@ -244,18 +260,24 @@ describe('ImportProcessor Integration', () => {
       // Mock mixed responses from OlympiaBank
       mockHttpService.post
         .mockReturnValueOnce(
-          of(OlympiaBankMock.createSuccessResponse({
-            amount: 1500,
-            client: {
-              name: 'João Silva',
-              document: '11144477735',
-              telefone: '5511987654321',
-              email: 'joao@test.com',
-            },
-            utms: { utm_source: 'import', utm_medium: 'batch', utm_campaign: 'bulk' },
-            product: { name_product: 'Boleto', valor_product: '15.00' },
-            split: { user: 'default', value: '0' },
-          }))
+          of(
+            OlympiaBankMock.createSuccessResponse({
+              amount: 1500,
+              client: {
+                name: 'João Silva',
+                document: '11144477735',
+                telefone: '5511987654321',
+                email: 'joao@test.com',
+              },
+              utms: {
+                utm_source: 'import',
+                utm_medium: 'batch',
+                utm_campaign: 'bulk',
+              },
+              product: { name_product: 'Boleto', valor_product: '15.00' },
+              split: { user: 'default', value: '0' },
+            }),
+          ),
         )
         .mockImplementation(() => {
           throw OlympiaBankMock.createServerError(500);
@@ -264,7 +286,10 @@ describe('ImportProcessor Integration', () => {
       // Mock webhook call
       mockHttpService.post.mockResolvedValueOnce({ data: 'ok' });
 
-      mockTransactionRepository.create.mockImplementation((data) => ({ id: 'txn-123', ...data }));
+      mockTransactionRepository.create.mockImplementation(data => ({
+        id: 'txn-123',
+        ...data,
+      }));
       mockTransactionRepository.save.mockResolvedValue({});
 
       const job = createMockJob(importId);
@@ -286,7 +311,7 @@ describe('ImportProcessor Integration', () => {
           successRows: 2,
           errorRows: 1,
         }),
-        { timeout: 5000 }
+        { timeout: 5000 },
       );
     });
 
@@ -325,21 +350,30 @@ describe('ImportProcessor Integration', () => {
           throw OlympiaBankMock.createRateLimitError(1);
         })
         .mockReturnValueOnce(
-          of(OlympiaBankMock.createSuccessResponse({
-            amount: 1500,
-            client: {
-              name: 'Rate Limited User',
-              document: '11111111111',
-              telefone: '5511987654321',
-              email: 'ratelimit@test.com',
-            },
-            utms: { utm_source: 'import', utm_medium: 'batch', utm_campaign: 'bulk' },
-            product: { name_product: 'Boleto', valor_product: '15.00' },
-            split: { user: 'default', value: '0' },
-          }))
+          of(
+            OlympiaBankMock.createSuccessResponse({
+              amount: 1500,
+              client: {
+                name: 'Rate Limited User',
+                document: '11111111111',
+                telefone: '5511987654321',
+                email: 'ratelimit@test.com',
+              },
+              utms: {
+                utm_source: 'import',
+                utm_medium: 'batch',
+                utm_campaign: 'bulk',
+              },
+              product: { name_product: 'Boleto', valor_product: '15.00' },
+              split: { user: 'default', value: '0' },
+            }),
+          ),
         );
 
-      mockTransactionRepository.create.mockImplementation((data) => ({ id: 'txn-retry', ...data }));
+      mockTransactionRepository.create.mockImplementation(data => ({
+        id: 'txn-retry',
+        ...data,
+      }));
       mockTransactionRepository.save.mockResolvedValue({});
 
       const job = createMockJob(importId);
@@ -388,27 +422,36 @@ describe('ImportProcessor Integration', () => {
       // Mock successful boleto creation
       mockHttpService.post
         .mockReturnValueOnce(
-          of(OlympiaBankMock.createSuccessResponse({
-            amount: 1500,
-            client: {
-              name: 'Test User',
-              document: '11144477735',
-              telefone: '5511987654321',
-              email: 'test@test.com',
-            },
-            utms: { utm_source: 'import', utm_medium: 'batch', utm_campaign: 'bulk' },
-            product: { name_product: 'Boleto', valor_product: '15.00' },
-            split: { user: 'default', value: '0' },
-          }))
+          of(
+            OlympiaBankMock.createSuccessResponse({
+              amount: 1500,
+              client: {
+                name: 'Test User',
+                document: '11144477735',
+                telefone: '5511987654321',
+                email: 'test@test.com',
+              },
+              utms: {
+                utm_source: 'import',
+                utm_medium: 'batch',
+                utm_campaign: 'bulk',
+              },
+              product: { name_product: 'Boleto', valor_product: '15.00' },
+              split: { user: 'default', value: '0' },
+            }),
+          ),
         )
         // Mock webhook failure
         .mockRejectedValueOnce(new Error('Webhook timeout'));
 
-      mockTransactionRepository.create.mockImplementation((data) => ({ id: 'txn-webhook', ...data }));
+      mockTransactionRepository.create.mockImplementation(data => ({
+        id: 'txn-webhook',
+        ...data,
+      }));
       mockTransactionRepository.save.mockResolvedValue({});
 
       const job = createMockJob(importId);
-      
+
       // Should not throw even if webhook fails
       await expect(processor.processImport(job)).resolves.not.toThrow();
 

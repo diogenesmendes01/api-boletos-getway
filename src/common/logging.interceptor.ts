@@ -18,7 +18,7 @@ export class LoggingInterceptor implements NestInterceptor {
     const method = request.method;
     const url = request.url;
     const now = Date.now();
-    
+
     // Gerar trace ID único para esta requisição
     const traceId = uuidv4();
     request.traceId = traceId;
@@ -36,7 +36,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap({
-        next: (data) => {
+        next: _data => {
           const response = context.switchToHttp().getResponse();
           const statusCode = response.statusCode;
           const responseTime = Date.now() - now;
@@ -61,7 +61,7 @@ export class LoggingInterceptor implements NestInterceptor {
             });
           }
         },
-        error: (error) => {
+        error: error => {
           const statusCode = error.status || 500;
           const responseTime = Date.now() - now;
 
@@ -82,18 +82,18 @@ export class LoggingInterceptor implements NestInterceptor {
 
   private sanitizeBody(body: any): any {
     if (!body) return undefined;
-    
+
     // Lista de campos sensíveis que não devem aparecer nos logs
     const sensitiveFields = ['password', 'token', 'apiKey', 'secret', 'auth'];
-    
+
     const sanitized = { ...body };
-    
+
     for (const field of sensitiveFields) {
       if (sanitized[field]) {
         sanitized[field] = '[REDACTED]';
       }
     }
-    
+
     return sanitized;
   }
 }

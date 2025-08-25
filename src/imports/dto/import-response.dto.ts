@@ -140,7 +140,8 @@ export class ImportStatusResponseDto {
 export class ImportEventDto {
   @ApiProperty({
     description: 'Dados do evento em formato JSON',
-    example: '{"status":"processing","progress":{"total":100,"processed":50,"success":45,"error":5}}',
+    example:
+      '{"status":"processing","progress":{"total":100,"processed":50,"success":45,"error":5}}',
   })
   data: string;
 }

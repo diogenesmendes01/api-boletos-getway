@@ -1,4 +1,11 @@
-import { Entity, Column, PrimaryGeneratedColumn, OneToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  OneToOne,
+  JoinColumn,
+  CreateDateColumn,
+} from 'typeorm';
 import { ImportRow } from './import-row.entity';
 
 @Entity('transactions')

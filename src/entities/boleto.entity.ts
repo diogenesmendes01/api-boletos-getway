@@ -1,14 +1,22 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Empresa } from './empresa.entity';
 import { Import } from './import.entity';
 
 export enum BoletoStatus {
   PENDENTE = 'pendente',
-  GERADO = 'gerado', 
+  GERADO = 'gerado',
   PAGO = 'pago',
   VENCIDO = 'vencido',
   CANCELADO = 'cancelado',
-  ERRO = 'erro'
+  ERRO = 'erro',
 }
 
 @Entity('boletos')
@@ -16,27 +24,44 @@ export class Boleto {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ length: 100, unique: true, comment: 'Número do boleto gerado pela OlympiaBank' })
+  @Column({
+    length: 100,
+    unique: true,
+    comment: 'Número do boleto gerado pela OlympiaBank',
+  })
   numeroBoleto: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, comment: 'Valor do boleto' })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    comment: 'Valor do boleto',
+  })
   valor: number;
 
   @Column({ type: 'date', comment: 'Data de vencimento do boleto' })
   vencimento: Date;
 
-  @Column({ 
-    type: 'enum', 
-    enum: BoletoStatus, 
+  @Column({
+    type: 'enum',
+    enum: BoletoStatus,
     default: BoletoStatus.PENDENTE,
-    comment: 'Status atual do boleto'
+    comment: 'Status atual do boleto',
   })
   status: BoletoStatus;
 
-  @Column({ type: 'text', nullable: true, comment: 'URL do boleto para download/visualização' })
+  @Column({
+    type: 'text',
+    nullable: true,
+    comment: 'URL do boleto para download/visualização',
+  })
   urlBoleto: string;
 
-  @Column({ type: 'text', nullable: true, comment: 'Mensagem de erro caso tenha ocorrido' })
+  @Column({
+    type: 'text',
+    nullable: true,
+    comment: 'Mensagem de erro caso tenha ocorrido',
+  })
   mensagemErro: string;
 
   @Column({ length: 14, comment: 'CNPJ da empresa (chave estrangeira)' })

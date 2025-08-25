@@ -1,4 +1,9 @@
-import { Process, Processor, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
+import {
+  Process,
+  Processor,
+  OnQueueCompleted,
+  OnQueueFailed,
+} from '@nestjs/bull';
 import { Job } from 'bull';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -42,7 +47,7 @@ export class ImportProcessor {
   async processImport(job: Job<{ importId: string }>) {
     const { importId } = job.data;
     const startTime = Date.now();
-    
+
     this.loggerService.logJobProcessing({
       jobId: job.id.toString(),
       jobType: 'process-import',
@@ -69,7 +74,7 @@ export class ImportProcessor {
 
       const batchSize = this.maxConcurrency;
       const batches = [];
-      
+
       for (let i = 0; i < rows.length; i += batchSize) {
         batches.push(rows.slice(i, i + batchSize));
       }
@@ -94,19 +99,19 @@ export class ImportProcessor {
         });
 
         await Promise.all(batch.map(row => this.processRow(row, importId)));
-        
+
         const batchDuration = Date.now() - batchStartTime;
-        
+
         const processedCount = await this.importRowRepository.count({
-          where: { 
-            importId, 
+          where: {
+            importId,
             status: RowStatus.SUCCESS,
           },
         });
-        
+
         const errorCount = await this.importRowRepository.count({
-          where: { 
-            importId, 
+          where: {
+            importId,
             status: RowStatus.ERROR,
           },
         });
@@ -128,8 +133,10 @@ export class ImportProcessor {
         });
       }
 
-      const import_ = await this.importRepository.findOne({ where: { id: importId } });
-      
+      const import_ = await this.importRepository.findOne({
+        where: { id: importId },
+      });
+
       await this.importRepository.update(importId, {
         status: ImportStatus.COMPLETED,
         finishedAt: new Date(),
@@ -171,7 +178,7 @@ export class ImportProcessor {
 
   private async processRow(row: ImportRow, importId: string) {
     let retryCount = 0;
-    
+
     this.loggerService.debug('Processing row started', {
       importId,
       rowId: row.id,
@@ -179,7 +186,7 @@ export class ImportProcessor {
       amount: row.amount,
       type: 'row_processing_start',
     });
-    
+
     while (retryCount <= this.maxRetries) {
       try {
         await this.importRowRepository.update(row.id, {
@@ -223,9 +230,9 @@ export class ImportProcessor {
         return;
       } catch (error) {
         retryCount++;
-        
+
         const isRetryableError = this.isRetryableError(error);
-        
+
         this.loggerService.warn('Row processing failed', {
           importId,
           rowId: row.id,
@@ -236,7 +243,7 @@ export class ImportProcessor {
           error: error.message,
           type: 'row_processing_error',
         });
-        
+
         if (!isRetryableError || retryCount > this.maxRetries) {
           await this.importRowRepository.update(row.id, {
             status: RowStatus.ERROR,
@@ -273,7 +280,7 @@ export class ImportProcessor {
 
   private isRetryableError(error: any): boolean {
     if (!error.response) return true;
-    
+
     const status = error.response.status;
     return status === 429 || (status >= 500 && status < 600);
   }
@@ -305,7 +312,7 @@ export class ImportProcessor {
       const response = await lastValueFrom(
         this.httpService.post(import_.webhookUrl, stats, {
           timeout: 5000,
-        })
+        }),
       );
 
       const duration = Date.now() - startTime;
@@ -368,7 +375,7 @@ export class ImportProcessor {
       importId: job.data.importId,
       type: 'job_failed',
     });
-    
+
     try {
       await this.importRepository.update(job.data.importId, {
         status: ImportStatus.FAILED,
@@ -380,10 +387,14 @@ export class ImportProcessor {
         type: 'import_status_update',
       });
     } catch (updateError) {
-      this.loggerService.error('Failed to update import status to FAILED', updateError, {
-        importId: job.data.importId,
-        type: 'import_status_update_error',
-      });
+      this.loggerService.error(
+        'Failed to update import status to FAILED',
+        updateError,
+        {
+          importId: job.data.importId,
+          type: 'import_status_update_error',
+        },
+      );
     }
   }
 }

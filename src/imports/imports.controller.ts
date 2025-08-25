@@ -1,26 +1,26 @@
-import { 
-  Controller, 
-  Post, 
-  Get, 
-  Param, 
-  UseGuards, 
-  UseInterceptors, 
-  UploadedFile, 
+import {
+  Controller,
+  Post,
+  Get,
+  Param,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
   Body,
   Res,
   Sse,
   HttpException,
   HttpStatus,
-  ParseUUIDPipe
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
-import { 
-  ApiTags, 
-  ApiOperation, 
-  ApiResponse, 
-  ApiSecurity, 
-  ApiConsumes, 
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiSecurity,
+  ApiConsumes,
   ApiParam,
   ApiProduces,
   ApiBody,
@@ -29,15 +29,15 @@ import { AuthGuard } from '../auth/auth.guard';
 import { ImportsService } from './imports.service';
 import { Observable } from 'rxjs';
 import { CreateImportDto } from './dto/create-import.dto';
-import { 
-  CreateImportResponseDto, 
-  ImportStatusResponseDto, 
-  ImportEventDto 
+import {
+  CreateImportResponseDto,
+  ImportStatusResponseDto,
+  ImportEventDto,
 } from './dto/import-response.dto';
-import { 
-  ErrorResponseDto, 
-  UnauthorizedResponseDto, 
-  NotFoundResponseDto 
+import {
+  ErrorResponseDto,
+  UnauthorizedResponseDto,
+  NotFoundResponseDto,
 } from './dto/error-response.dto';
 
 @ApiTags('imports')
@@ -51,7 +51,8 @@ export class ImportsController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({
     summary: 'Upload de arquivo para importação',
-    description: 'Faz upload de um arquivo CSV ou XLSX para processamento assíncrono de boletos. O arquivo deve conter as colunas: nome, CNPJ, endereco, numero, bairro, estado, CEP, valor, vencimento.',
+    description:
+      'Faz upload de um arquivo CSV ou XLSX para processamento assíncrono de boletos. O arquivo deve conter as colunas: nome, CNPJ, endereco, numero, bairro, estado, CEP, valor, vencimento.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: CreateImportDto })
@@ -89,7 +90,8 @@ export class ImportsController {
   @Get(':id')
   @ApiOperation({
     summary: 'Consultar status da importação',
-    description: 'Retorna o status atual da importação, incluindo estatísticas de processamento e links para download dos relatórios.',
+    description:
+      'Retorna o status atual da importação, incluindo estatísticas de processamento e links para download dos relatórios.',
   })
   @ApiParam({
     name: 'id',
@@ -119,7 +121,8 @@ export class ImportsController {
   @Sse(':id/events')
   @ApiOperation({
     summary: 'Stream de eventos em tempo real',
-    description: 'Estabelece uma conexão Server-Sent Events para receber atualizações em tempo real do progresso da importação.',
+    description:
+      'Estabelece uma conexão Server-Sent Events para receber atualizações em tempo real do progresso da importação.',
   })
   @ApiParam({
     name: 'id',
@@ -143,14 +146,17 @@ export class ImportsController {
     description: 'Importação não encontrada',
     type: NotFoundResponseDto,
   })
-  importEvents(@Param('id', ParseUUIDPipe) id: string): Observable<MessageEvent> {
+  importEvents(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Observable<MessageEvent> {
     return this.importsService.getImportEvents(id);
   }
 
   @Get(':id/results.csv')
   @ApiOperation({
     summary: 'Download do CSV de sucessos',
-    description: 'Faz download de um arquivo CSV contendo todas as linhas processadas com sucesso, incluindo URLs dos boletos gerados.',
+    description:
+      'Faz download de um arquivo CSV contendo todas as linhas processadas com sucesso, incluindo URLs dos boletos gerados.',
   })
   @ApiParam({
     name: 'id',
@@ -169,7 +175,10 @@ export class ImportsController {
       },
       'Content-Disposition': {
         description: 'Disposição do conteúdo para download',
-        schema: { type: 'string', example: 'attachment; filename="results-uuid.csv"' },
+        schema: {
+          type: 'string',
+          example: 'attachment; filename="results-uuid.csv"',
+        },
       },
     },
   })
@@ -189,14 +198,18 @@ export class ImportsController {
   ) {
     const csv = await this.importsService.generateResultsCsv(id);
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="results-${id}.csv"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="results-${id}.csv"`,
+    );
     res.send(csv);
   }
 
   @Get(':id/errors.csv')
   @ApiOperation({
     summary: 'Download do CSV de erros',
-    description: 'Faz download de um arquivo CSV contendo todas as linhas que falharam no processamento, incluindo códigos e mensagens de erro.',
+    description:
+      'Faz download de um arquivo CSV contendo todas as linhas que falharam no processamento, incluindo códigos e mensagens de erro.',
   })
   @ApiParam({
     name: 'id',
@@ -215,7 +228,10 @@ export class ImportsController {
       },
       'Content-Disposition': {
         description: 'Disposição do conteúdo para download',
-        schema: { type: 'string', example: 'attachment; filename="errors-uuid.csv"' },
+        schema: {
+          type: 'string',
+          example: 'attachment; filename="errors-uuid.csv"',
+        },
       },
     },
   })
@@ -235,7 +251,10 @@ export class ImportsController {
   ) {
     const csv = await this.importsService.generateErrorsCsv(id);
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="errors-${id}.csv"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="errors-${id}.csv"`,
+    );
     res.send(csv);
   }
 }

@@ -28,7 +28,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Login do usuário',
-    description: 'Realiza login do usuário com email e token do OlympiaBank. A API busca automaticamente as informações da empresa.',
+    description:
+      'Realiza login do usuário com email e token do OlympiaBank. A API busca automaticamente as informações da empresa.',
   })
   @ApiBody({ type: LoginDto })
   @ApiResponse({
@@ -77,7 +78,7 @@ export class AuthController {
     if (req.user.authType === 'jwt') {
       await this.authService.logout(req.user.userId);
     }
-    
+
     return { message: 'Logout realizado com sucesso' };
   }
 
@@ -110,7 +111,7 @@ export class AuthController {
     if (req.user.authType !== 'jwt') {
       throw new Error('Refresh token only available for JWT authentication');
     }
-    
+
     return this.authService.refreshToken(req.user.userId);
   }
 
@@ -155,7 +156,7 @@ export class AuthController {
     }
 
     const userToken = await this.authService.getUserToken(req.user.userId);
-    
+
     return {
       valid: true,
       user: {

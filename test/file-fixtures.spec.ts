@@ -34,7 +34,7 @@ describe('File Fixtures Validation', () => {
       const result = await service.parseFile(validSamplePath);
 
       expect(result).toHaveLength(5);
-      
+
       // Validate first row
       expect(result[0]).toEqual({
         nome: 'João Silva',
@@ -115,8 +115,9 @@ describe('File Fixtures Validation', () => {
     });
 
     it('should throw error for invalid amount', async () => {
-      await expect(service.parseFile(invalidSamplePath))
-        .rejects.toThrow(/Row 1.*Invalid amount/);
+      await expect(service.parseFile(invalidSamplePath)).rejects.toThrow(
+        /Row 1.*Invalid amount/,
+      );
     });
   });
 
@@ -232,8 +233,10 @@ describe('File Fixtures Validation', () => {
 
       // Check that all amounts are incremental
       for (let i = 0; i < result.length; i++) {
-        expect(result[i].valor).toBe(1000 + (i * 100));
-        expect(result[i].nome).toBe(`Cliente ${String(i + 1).padStart(3, '0')}`);
+        expect(result[i].valor).toBe(1000 + i * 100);
+        expect(result[i].nome).toBe(
+          `Cliente ${String(i + 1).padStart(3, '0')}`,
+        );
         expect(result[i].vencimento).toBe('2024-12-31');
       }
     });
@@ -251,7 +254,7 @@ describe('File Fixtures Validation', () => {
       files.forEach(filename => {
         const filePath = path.join(fixturesPath, filename);
         const stats = fs.statSync(filePath);
-        
+
         // Each test file should be reasonable in size (< 10KB for test purposes)
         expect(stats.size).toBeLessThan(10 * 1024);
         expect(stats.size).toBeGreaterThan(0);
@@ -274,7 +277,7 @@ describe('File Fixtures Validation', () => {
         const filePath = path.join(fixturesPath, filename);
         const content = fs.readFileSync(filePath, 'utf-8');
         const lines = content.trim().split('\n');
-        
+
         expect(lines[0]).toBe(expectedHeader);
       });
     });
@@ -290,11 +293,11 @@ describe('File Fixtures Validation', () => {
         const filePath = path.join(fixturesPath, filename);
         const content = fs.readFileSync(filePath, 'utf-8');
         const lines = content.trim().split('\n');
-        
+
         // Check that all lines have the same number of columns
         const expectedColumnCount = lines[0].split(',').length;
-        
-        lines.forEach((line, index) => {
+
+        lines.forEach((line, _index) => {
           const columnCount = line.split(',').length;
           expect(columnCount).toBe(expectedColumnCount);
         });

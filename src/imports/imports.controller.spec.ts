@@ -60,7 +60,10 @@ describe('ImportsController', () => {
 
       mockImportsService.createImport.mockResolvedValue(expectedResult);
 
-      const result = await controller.createImport(mockFile, 'https://webhook.url');
+      const result = await controller.createImport(
+        mockFile,
+        'https://webhook.url',
+      );
 
       expect(result).toEqual({
         importId: 'uuid-123',
@@ -68,7 +71,10 @@ describe('ImportsController', () => {
         maxRows: 2000,
       });
 
-      expect(service.createImport).toHaveBeenCalledWith(mockFile, 'https://webhook.url');
+      expect(service.createImport).toHaveBeenCalledWith(
+        mockFile,
+        'https://webhook.url',
+      );
     });
 
     it('should create import without webhook URL', async () => {
@@ -99,7 +105,7 @@ describe('ImportsController', () => {
 
     it('should throw error when file is missing', async () => {
       await expect(controller.createImport(null, null)).rejects.toThrow(
-        new HttpException('File is required', HttpStatus.BAD_REQUEST)
+        new HttpException('File is required', HttpStatus.BAD_REQUEST),
       );
 
       expect(service.createImport).not.toHaveBeenCalled();
@@ -114,11 +120,11 @@ describe('ImportsController', () => {
       } as Express.Multer.File;
 
       mockImportsService.createImport.mockRejectedValue(
-        new Error('File contains more than 2000 rows')
+        new Error('File contains more than 2000 rows'),
       );
 
       await expect(controller.createImport(mockFile)).rejects.toThrow(
-        'File contains more than 2000 rows'
+        'File contains more than 2000 rows',
       );
     });
   });
@@ -156,11 +162,11 @@ describe('ImportsController', () => {
       // This would be handled by the ParseUUIDPipe in a real scenario
       // Here we're just testing the service call
       mockImportsService.getImportStatus.mockRejectedValue(
-        new Error('Import not found')
+        new Error('Import not found'),
       );
 
       await expect(controller.getImportStatus('invalid-uuid')).rejects.toThrow(
-        'Import not found'
+        'Import not found',
       );
     });
 
@@ -218,7 +224,8 @@ describe('ImportsController', () => {
 
   describe('getResultsCsv', () => {
     it('should return results CSV with correct headers', async () => {
-      const mockCsv = 'row_number,name,document,amount,boleto_url,boleto_code,transaction_id\n1,João,111,15.00,url1,BOL1,txn1\n';
+      const mockCsv =
+        'row_number,name,document,amount,boleto_url,boleto_code,transaction_id\n1,João,111,15.00,url1,BOL1,txn1\n';
       const mockResponse = {
         setHeader: jest.fn(),
         send: jest.fn(),
@@ -229,16 +236,20 @@ describe('ImportsController', () => {
       await controller.getResultsCsv('uuid-123', mockResponse);
 
       expect(service.generateResultsCsv).toHaveBeenCalledWith('uuid-123');
-      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv');
+      expect(mockResponse.setHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'text/csv',
+      );
       expect(mockResponse.setHeader).toHaveBeenCalledWith(
         'Content-Disposition',
-        'attachment; filename="results-uuid-123.csv"'
+        'attachment; filename="results-uuid-123.csv"',
       );
       expect(mockResponse.send).toHaveBeenCalledWith(mockCsv);
     });
 
     it('should handle empty results', async () => {
-      const mockCsv = 'row_number,name,document,amount,boleto_url,boleto_code,transaction_id\n';
+      const mockCsv =
+        'row_number,name,document,amount,boleto_url,boleto_code,transaction_id\n';
       const mockResponse = {
         setHeader: jest.fn(),
         send: jest.fn(),
@@ -258,11 +269,11 @@ describe('ImportsController', () => {
       } as unknown as Response;
 
       mockImportsService.generateResultsCsv.mockRejectedValue(
-        new Error('Import not found')
+        new Error('Import not found'),
       );
 
       await expect(
-        controller.getResultsCsv('non-existent', mockResponse)
+        controller.getResultsCsv('non-existent', mockResponse),
       ).rejects.toThrow('Import not found');
 
       expect(mockResponse.send).not.toHaveBeenCalled();
@@ -271,7 +282,8 @@ describe('ImportsController', () => {
 
   describe('getErrorsCsv', () => {
     it('should return errors CSV with correct headers', async () => {
-      const mockCsv = 'row_number,name,document,amount,error_code,error_message\n1,Invalid,invalid,15.00,VALIDATION,Invalid document\n';
+      const mockCsv =
+        'row_number,name,document,amount,error_code,error_message\n1,Invalid,invalid,15.00,VALIDATION,Invalid document\n';
       const mockResponse = {
         setHeader: jest.fn(),
         send: jest.fn(),
@@ -282,16 +294,20 @@ describe('ImportsController', () => {
       await controller.getErrorsCsv('uuid-123', mockResponse);
 
       expect(service.generateErrorsCsv).toHaveBeenCalledWith('uuid-123');
-      expect(mockResponse.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv');
+      expect(mockResponse.setHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'text/csv',
+      );
       expect(mockResponse.setHeader).toHaveBeenCalledWith(
         'Content-Disposition',
-        'attachment; filename="errors-uuid-123.csv"'
+        'attachment; filename="errors-uuid-123.csv"',
       );
       expect(mockResponse.send).toHaveBeenCalledWith(mockCsv);
     });
 
     it('should handle empty errors', async () => {
-      const mockCsv = 'row_number,name,document,amount,error_code,error_message\n';
+      const mockCsv =
+        'row_number,name,document,amount,error_code,error_message\n';
       const mockResponse = {
         setHeader: jest.fn(),
         send: jest.fn(),
@@ -311,11 +327,11 @@ describe('ImportsController', () => {
       } as unknown as Response;
 
       mockImportsService.generateErrorsCsv.mockRejectedValue(
-        new Error('Import not found')
+        new Error('Import not found'),
       );
 
       await expect(
-        controller.getErrorsCsv('non-existent', mockResponse)
+        controller.getErrorsCsv('non-existent', mockResponse),
       ).rejects.toThrow('Import not found');
 
       expect(mockResponse.send).not.toHaveBeenCalled();

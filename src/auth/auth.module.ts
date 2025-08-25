@@ -18,17 +18,14 @@ import { UserToken } from '../entities/user-token.entity';
       }),
       inject: [ConfigService],
     }),
-    
+
     // Registrar a entidade UserToken
     TypeOrmModule.forFeature([UserToken]),
   ],
   providers: [
     AuthGuard,
-    AuthService,  // ← FALTAVA este provider!
+    AuthService, // ← FALTAVA este provider!
   ],
-  exports: [
-    AuthGuard,
-    AuthService,
-  ],
+  exports: [AuthGuard, AuthService],
 })
 export class AuthModule {}

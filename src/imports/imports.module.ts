@@ -34,11 +34,20 @@ import { v4 as uuidv4 } from 'uuid';
         },
       }),
       fileFilter: (req, file, cb) => {
-        const allowedMimes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+        const allowedMimes = [
+          'text/csv',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ];
         if (allowedMimes.includes(file.mimetype)) {
           cb(null, true);
         } else {
-          cb(new Error('Invalid file type. Only CSV and XLSX files are allowed.'), false);
+          cb(
+            new Error(
+              'Invalid file type. Only CSV and XLSX files are allowed.',
+            ),
+            false,
+          );
         }
       },
       limits: {
@@ -48,6 +57,13 @@ import { v4 as uuidv4 } from 'uuid';
     HttpModule,
   ],
   controllers: [ImportsController],
-  providers: [ImportsService, FileProcessorService, OlympiaBankService, ImportProcessor, EmpresaService, BoletoService],
+  providers: [
+    ImportsService,
+    FileProcessorService,
+    OlympiaBankService,
+    ImportProcessor,
+    EmpresaService,
+    BoletoService,
+  ],
 })
 export class ImportsModule {}

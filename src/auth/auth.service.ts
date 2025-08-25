@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -35,7 +35,7 @@ export class AuthService {
     } else {
       // Buscar informações da empresa via OlympiaBank API
       const companyInfo = await this.getCompanyInfoFromOlympia(olympiaToken);
-      
+
       // Criar novo usuário
       userToken = this.userTokenRepository.create({
         userId: crypto.randomUUID(),
@@ -173,7 +173,7 @@ export class AuthService {
       // Fazer uma chamada para a API do OlympiaBank para buscar informações da empresa
       // Por enquanto, vamos usar valores padrão baseados no token
       // Em produção, você pode implementar uma chamada real para a API
-      
+
       this.loggerService.info('Fetching company info from OlympiaBank', {
         hasToken: !!olympiaToken,
         tokenPrefix: olympiaToken.substring(0, 10) + '...',
@@ -184,11 +184,14 @@ export class AuthService {
       // const response = await this.httpService.get(`${olympiaBaseUrl}/v1/company/profile`, {
       //   headers: { Authorization: `Bearer ${olympiaToken}` }
       // });
-      
+
       // Por enquanto, retornar valores baseados no hash do token
-      const tokenHash = crypto.createHash('md5').update(olympiaToken).digest('hex');
+      const tokenHash = crypto
+        .createHash('md5')
+        .update(olympiaToken)
+        .digest('hex');
       const companyId = tokenHash.substring(0, 8);
-      
+
       return {
         companyName: `Empresa ${companyId.toUpperCase()}`,
         companyDocument: `${companyId.substring(0, 2)}.${companyId.substring(2, 5)}.${companyId.substring(5, 7)}/0001-${companyId.substring(7, 8)}`,

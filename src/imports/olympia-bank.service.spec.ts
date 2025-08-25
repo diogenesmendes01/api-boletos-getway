@@ -9,7 +9,7 @@ import { of, throwError } from 'rxjs';
 describe('OlympiaBankService', () => {
   let service: OlympiaBankService;
   let httpService: HttpService;
-  let configService: ConfigService;
+  // let configService: ConfigService;
 
   const mockHttpService = {
     post: jest.fn(),
@@ -133,7 +133,7 @@ describe('OlympiaBankService', () => {
             'Content-Type': 'application/json',
           },
           timeout: 30000,
-        }
+        },
       );
     });
 
@@ -148,7 +148,7 @@ describe('OlympiaBankService', () => {
       mockHttpService.post.mockReturnValue(throwError(() => axiosError));
 
       await expect(service.createBoleto(mockDto)).rejects.toThrow(
-        'OlympiaBank API error: Rate limit exceeded'
+        'OlympiaBank API error: Rate limit exceeded',
       );
     });
 
@@ -163,7 +163,7 @@ describe('OlympiaBankService', () => {
       mockHttpService.post.mockReturnValue(throwError(() => axiosError));
 
       await expect(service.createBoleto(mockDto)).rejects.toThrow(
-        'OlympiaBank API error: Internal server error'
+        'OlympiaBank API error: Internal server error',
       );
     });
 
@@ -171,7 +171,9 @@ describe('OlympiaBankService', () => {
       const networkError = new Error('Network Error');
       mockHttpService.post.mockReturnValue(throwError(() => networkError));
 
-      await expect(service.createBoleto(mockDto)).rejects.toThrow('Network Error');
+      await expect(service.createBoleto(mockDto)).rejects.toThrow(
+        'Network Error',
+      );
     });
 
     it('should handle axios error without response', async () => {
@@ -179,7 +181,7 @@ describe('OlympiaBankService', () => {
       mockHttpService.post.mockReturnValue(throwError(() => axiosError));
 
       await expect(service.createBoleto(mockDto)).rejects.toThrow(
-        'OlympiaBank API error: Request timeout'
+        'OlympiaBank API error: Request timeout',
       );
     });
 
@@ -215,7 +217,7 @@ describe('OlympiaBankService', () => {
       mockHttpService.post.mockReturnValue(of(mockResponse));
 
       const startTime = Date.now();
-      
+
       // Primeira requisição
       await service.createBoleto({
         amount: 1000,
@@ -235,7 +237,7 @@ describe('OlympiaBankService', () => {
       });
 
       const endTime = Date.now();
-      
+
       // Deve ter levado pelo menos o intervalo mínimo entre requisições
       expect(endTime - startTime).toBeGreaterThanOrEqual(90); // Considerando alguma tolerância
     });

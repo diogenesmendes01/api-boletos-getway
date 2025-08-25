@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerService } from '../common/logger.service';
 import { AuthService } from './auth.service';
@@ -14,7 +19,7 @@ export class AuthGuard implements CanActivate {
   ) {
     this.apiKeys = new Map();
     const keys = this.configService.get<string>('CLIENT_API_KEYS', '');
-    
+
     if (keys) {
       keys.split(',').forEach(pair => {
         const [client, key] = pair.split(':');
@@ -59,7 +64,9 @@ export class AuthGuard implements CanActivate {
         },
       });
 
-      throw new UnauthorizedException('Missing or invalid authorization header');
+      throw new UnauthorizedException(
+        'Missing or invalid authorization header',
+      );
     }
 
     const token = authHeader.substring(7);
@@ -67,7 +74,7 @@ export class AuthGuard implements CanActivate {
     // Primeiro, tentar validar como JWT
     try {
       const userToken = await this.authService.validateToken(token);
-      
+
       this.loggerService.logAuth({
         action: 'token_validation',
         userId: userToken.userId,
@@ -131,7 +138,7 @@ export class AuthGuard implements CanActivate {
         type: 'auth_success_api_key',
       });
 
-      request.user = { 
+      request.user = {
         client,
         authType: 'api_key',
       };

@@ -7,20 +7,20 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { AppModule } from '../src/app.module';
 import { Import, ImportStatus } from '../src/entities/import.entity';
-import { ImportRow, RowStatus } from '../src/entities/import-row.entity';
+import { ImportRow } from '../src/entities/import-row.entity';
 import { Transaction } from '../src/entities/transaction.entity';
 import { Repository } from 'typeorm';
-import { Queue } from 'bull';
+// import { Queue } from 'bull';
 import { HttpService } from '@nestjs/axios';
-import { of } from 'rxjs';
+// import { of } from 'rxjs';
 
 describe('ImportsController (e2e)', () => {
   let app: INestApplication;
   let importRepository: Repository<Import>;
-  let importRowRepository: Repository<ImportRow>;
-  let transactionRepository: Repository<Transaction>;
-  let importQueue: Queue;
-  let httpService: HttpService;
+  // let importRowRepository: Repository<ImportRow>;
+  // let transactionRepository: Repository<Transaction>;
+  // let importQueue: Queue;
+  // let httpService: HttpService;
 
   // Mock repositories
   const mockImportRepository = {
@@ -80,14 +80,22 @@ invalid,Invalid User,invalid-doc,invalid-phone,invalid-email,invalid-date`;
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     app.setGlobalPrefix('v1');
 
-    importRepository = moduleFixture.get<Repository<Import>>(getRepositoryToken(Import));
-    importRowRepository = moduleFixture.get<Repository<ImportRow>>(getRepositoryToken(ImportRow));
-    transactionRepository = moduleFixture.get<Repository<Transaction>>(getRepositoryToken(Transaction));
-    importQueue = moduleFixture.get<Queue>(getQueueToken('import-queue'));
-    httpService = moduleFixture.get<HttpService>(HttpService);
+    importRepository = moduleFixture.get<Repository<Import>>(
+      getRepositoryToken(Import),
+    );
+    // importRowRepository = moduleFixture.get<Repository<ImportRow>>(
+    //   getRepositoryToken(ImportRow),
+    // );
+    // transactionRepository = moduleFixture.get<Repository<Transaction>>(
+    //   getRepositoryToken(Transaction),
+    // );
+    // importQueue = moduleFixture.get<Queue>(getQueueToken('import-queue'));
+    // httpService = moduleFixture.get<HttpService>(HttpService);
 
     await app.init();
   });
@@ -118,7 +126,10 @@ invalid,Invalid User,invalid-doc,invalid-phone,invalid-email,invalid-date`;
 
       mockImportRepository.create.mockReturnValue(mockImport);
       mockImportRepository.save.mockResolvedValue(mockImport);
-      mockImportRowRepository.create.mockImplementation((data) => ({ id: 'row-id', ...data }));
+      mockImportRowRepository.create.mockImplementation(data => ({
+        id: 'row-id',
+        ...data,
+      }));
       mockImportRowRepository.save.mockResolvedValue([]);
       mockQueue.add.mockResolvedValue({});
 
@@ -134,7 +145,9 @@ invalid,Invalid User,invalid-doc,invalid-phone,invalid-email,invalid-date`;
         maxRows: 2000,
       });
 
-      expect(importQueue.add).toHaveBeenCalledWith('process-import', { importId: 'import-123' });
+      expect(mockQueue.add).toHaveBeenCalledWith('process-import', {
+        importId: 'import-123',
+      });
     });
 
     it('should create import with webhook URL', async () => {
@@ -149,7 +162,10 @@ invalid,Invalid User,invalid-doc,invalid-phone,invalid-email,invalid-date`;
 
       mockImportRepository.create.mockReturnValue(mockImport);
       mockImportRepository.save.mockResolvedValue(mockImport);
-      mockImportRowRepository.create.mockImplementation((data) => ({ id: 'row-id', ...data }));
+      mockImportRowRepository.create.mockImplementation(data => ({
+        id: 'row-id',
+        ...data,
+      }));
       mockImportRowRepository.save.mockResolvedValue([]);
       mockQueue.add.mockResolvedValue({});
 
@@ -164,7 +180,7 @@ invalid,Invalid User,invalid-doc,invalid-phone,invalid-email,invalid-date`;
       expect(importRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           webhookUrl: 'https://webhook.example.com',
-        })
+        }),
       );
     });
 
@@ -229,7 +245,9 @@ invalid,Invalid User,invalid-doc,invalid-phone,invalid-email,invalid-date`;
           error: 5,
         },
         links: {
-          results: expect.stringContaining('/v1/imports/import-123/results.csv'),
+          results: expect.stringContaining(
+            '/v1/imports/import-123/results.csv',
+          ),
           errors: expect.stringContaining('/v1/imports/import-123/errors.csv'),
         },
       });
@@ -277,9 +295,15 @@ invalid,Invalid User,invalid-doc,invalid-phone,invalid-email,invalid-date`;
         .expect(200);
 
       expect(response.headers['content-type']).toBe('text/csv; charset=utf-8');
-      expect(response.headers['content-disposition']).toContain('results-import-123.csv');
-      expect(response.text).toContain('row_number,name,document,amount,boleto_url,boleto_code,transaction_id');
-      expect(response.text).toContain('1,João Silva,11144477735,15,https://boleto.com/1,BOL001,txn-001');
+      expect(response.headers['content-disposition']).toContain(
+        'results-import-123.csv',
+      );
+      expect(response.text).toContain(
+        'row_number,name,document,amount,boleto_url,boleto_code,transaction_id',
+      );
+      expect(response.text).toContain(
+        '1,João Silva,11144477735,15,https://boleto.com/1,BOL001,txn-001',
+      );
     });
 
     it('should return 401 without authentication', async () => {
@@ -310,9 +334,15 @@ invalid,Invalid User,invalid-doc,invalid-phone,invalid-email,invalid-date`;
         .expect(200);
 
       expect(response.headers['content-type']).toBe('text/csv; charset=utf-8');
-      expect(response.headers['content-disposition']).toContain('errors-import-123.csv');
-      expect(response.text).toContain('row_number,name,document,amount,error_code,error_message');
-      expect(response.text).toContain('1,Invalid User,invalid-doc,15,VALIDATION_ERROR,Invalid document format');
+      expect(response.headers['content-disposition']).toContain(
+        'errors-import-123.csv',
+      );
+      expect(response.text).toContain(
+        'row_number,name,document,amount,error_code,error_message',
+      );
+      expect(response.text).toContain(
+        '1,Invalid User,invalid-doc,15,VALIDATION_ERROR,Invalid document format',
+      );
     });
 
     it('should return 401 without authentication', async () => {
@@ -341,7 +371,9 @@ invalid,Invalid User,invalid-doc,invalid-phone,invalid-email,invalid-date`;
         .set('Accept', 'text/event-stream')
         .expect(200);
 
-      expect(response.headers['content-type']).toBe('text/plain; charset=utf-8');
+      expect(response.headers['content-type']).toBe(
+        'text/plain; charset=utf-8',
+      );
     });
 
     it('should return 401 without authentication', async () => {

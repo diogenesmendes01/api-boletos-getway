@@ -26,7 +26,7 @@ export class ImportsService {
 
   async createImport(file: Express.Multer.File, webhookUrl?: string) {
     const rows = await this.fileProcessorService.parseFile(file.path);
-    
+
     if (rows.length > 2000) {
       throw new Error('File contains more than 2000 rows');
     }
@@ -41,13 +41,13 @@ export class ImportsService {
 
     await this.importRepository.save(import_);
 
-    const importRows = rows.map((row, index) => 
+    const importRows = rows.map((row, index) =>
       this.importRowRepository.create({
         importId: import_.id,
         rowNumber: index + 1,
         ...row,
         status: RowStatus.PENDING,
-      })
+      }),
     );
 
     await this.importRowRepository.save(importRows);
@@ -62,7 +62,7 @@ export class ImportsService {
 
   async getImportStatus(id: string) {
     const import_ = await this.importRepository.findOne({ where: { id } });
-    
+
     if (!import_) {
       throw new NotFoundException('Import not found');
     }
@@ -93,7 +93,9 @@ export class ImportsService {
     return new Observable(observer => {
       const intervalId = setInterval(async () => {
         try {
-          const import_ = await this.importRepository.findOne({ where: { id } });
+          const import_ = await this.importRepository.findOne({
+            where: { id },
+          });
           if (!import_) {
             observer.error(new Error('Import not found'));
             return;
@@ -113,7 +115,10 @@ export class ImportsService {
 
           observer.next(event);
 
-          if (import_.status === ImportStatus.COMPLETED || import_.status === ImportStatus.FAILED) {
+          if (
+            import_.status === ImportStatus.COMPLETED ||
+            import_.status === ImportStatus.FAILED
+          ) {
             observer.complete();
             clearInterval(intervalId);
           }
@@ -163,7 +168,14 @@ export class ImportsService {
     if (data.length === 0) {
       return csvStringify.stringify([], {
         header: true,
-        columns: ['row_number', 'name', 'document', 'amount', 'error_code', 'error_message']
+        columns: [
+          'row_number',
+          'name',
+          'document',
+          'amount',
+          'error_code',
+          'error_message',
+        ],
       });
     }
 

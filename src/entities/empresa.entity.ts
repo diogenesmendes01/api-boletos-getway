@@ -1,9 +1,19 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
 import { Boleto } from './boleto.entity';
 
 @Entity('empresas')
 export class Empresa {
-  @PrimaryColumn({ length: 14, comment: 'CNPJ da empresa sem formatação (14 dígitos)' })
+  @PrimaryColumn({
+    length: 14,
+    comment: 'CNPJ da empresa sem formatação (14 dígitos)',
+  })
   cnpj: string;
 
   @Column({ length: 255, comment: 'Nome da empresa' })

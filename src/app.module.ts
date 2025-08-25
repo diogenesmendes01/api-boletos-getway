@@ -24,16 +24,21 @@ import { Boleto } from './entities/boleto.entity';
     LoggerModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule, LoggerModule],
-      useFactory: (configService: ConfigService, loggerService: LoggerService) => {
+      useFactory: (
+        configService: ConfigService,
+        loggerService: LoggerService,
+      ) => {
         const isProduction = configService.get('NODE_ENV') === 'production';
-        
+
         // NÃO usar URL - usar variáveis individuais que funcionam
         const config = {
           type: 'postgres' as const,
           host: configService.get('DB_HOST') || 'postgres-olympia',
           port: parseInt(configService.get('DB_PORT') || '5432'),
-          username: configService.get('DB_USERNAME') || 'olympia_app', 
-          password: configService.get('DB_PASSWORD') || 'V/aMMGypweFPSlGivTdcaC44zzEZDfuv',
+          username: configService.get('DB_USERNAME') || 'olympia_app',
+          password:
+            configService.get('DB_PASSWORD') ||
+            'V/aMMGypweFPSlGivTdcaC44zzEZDfuv',
           database: configService.get('DB_DATABASE') || 'boleto_db',
           entities: [Import, ImportRow, Transaction, Empresa, Boleto],
           synchronize: false,
@@ -58,10 +63,13 @@ import { Boleto } from './entities/boleto.entity';
     }),
     BullModule.forRootAsync({
       imports: [ConfigModule, LoggerModule],
-      useFactory: (configService: ConfigService, loggerService: LoggerService) => {
+      useFactory: (
+        configService: ConfigService,
+        loggerService: LoggerService,
+      ) => {
         const isProduction = configService.get('NODE_ENV') === 'production';
         const redisUrl = configService.get('REDIS_URL');
-        
+
         loggerService.info('Redis connection configured', {
           service: 'api-boletos-gateway',
           environment: isProduction ? 'production' : 'development',

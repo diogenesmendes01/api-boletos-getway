@@ -14,7 +14,7 @@ export class LoggerService {
   private createLogger(): winston.Logger {
     const logLevel = this.configService.get<string>('LOG_LEVEL', 'info');
     const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
-    
+
     const transports: winston.transport[] = [];
 
     // Console transport para desenvolvimento
@@ -25,11 +25,13 @@ export class LoggerService {
             winston.format.colorize(),
             winston.format.timestamp(),
             winston.format.printf(({ timestamp, level, message, ...meta }) => {
-              const metaStr = Object.keys(meta).length ? JSON.stringify(meta, null, 2) : '';
+              const metaStr = Object.keys(meta).length
+                ? JSON.stringify(meta, null, 2)
+                : '';
               return `${timestamp} [${level}]: ${message} ${metaStr}`;
-            })
+            }),
           ),
-        })
+        }),
       );
     }
 
@@ -44,9 +46,9 @@ export class LoggerService {
           maxFiles: '14d',
           format: winston.format.combine(
             winston.format.timestamp(),
-            winston.format.json()
+            winston.format.json(),
           ),
-        })
+        }),
       );
 
       // Log de erros separado
@@ -59,9 +61,9 @@ export class LoggerService {
           maxFiles: '30d',
           format: winston.format.combine(
             winston.format.timestamp(),
-            winston.format.json()
+            winston.format.json(),
           ),
-        })
+        }),
       );
 
       // Console em produção também (para Docker logs)
@@ -69,9 +71,9 @@ export class LoggerService {
         new winston.transports.Console({
           format: winston.format.combine(
             winston.format.timestamp(),
-            winston.format.json()
+            winston.format.json(),
           ),
-        })
+        }),
       );
     }
 
@@ -86,7 +88,7 @@ export class LoggerService {
         new winston.transports.Console({
           format: winston.format.combine(
             winston.format.timestamp(),
-            winston.format.json()
+            winston.format.json(),
           ),
         }),
       ],
@@ -94,7 +96,7 @@ export class LoggerService {
         new winston.transports.Console({
           format: winston.format.combine(
             winston.format.timestamp(),
-            winston.format.json()
+            winston.format.json(),
           ),
         }),
       ],
@@ -126,7 +128,7 @@ export class LoggerService {
         },
       }),
     };
-    
+
     this.logger.error(message, errorMeta);
   }
 
@@ -228,7 +230,10 @@ export class LoggerService {
     userAgent?: string;
     details?: any;
   }) {
-    const level = data.severity === 'critical' || data.severity === 'high' ? 'error' : 'warn';
+    const level =
+      data.severity === 'critical' || data.severity === 'high'
+        ? 'error'
+        : 'warn';
     this.logger.log(level, 'Security Event', {
       type: 'security',
       ...data,

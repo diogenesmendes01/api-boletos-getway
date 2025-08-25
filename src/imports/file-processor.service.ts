@@ -38,7 +38,9 @@ export class FileProcessorService {
       throw new Error('Unsupported file format');
     }
 
-    return rawRows.map((row, index) => this.validateAndTransformRow(row, index + 1));
+    return rawRows.map((row, index) =>
+      this.validateAndTransformRow(row, index + 1),
+    );
   }
 
   private validateAndTransformRow(row: any, rowNumber: number): ParsedRow {
@@ -127,9 +129,9 @@ export class FileProcessorService {
       const cleaned = value.replace(/[^\d.,]/g, '');
       const normalized = cleaned.replace(',', '.');
       const parsed = parseFloat(normalized);
-      
+
       if (isNaN(parsed)) return null;
-      
+
       if (parsed < 100) {
         return Math.round(parsed * 100);
       }
@@ -141,36 +143,35 @@ export class FileProcessorService {
 
   private validateCNPJ_Only(value: any): string | null {
     if (!value) return null;
-    
+
     const cleaned = String(value).replace(/\D/g, '');
-    
+
     if (cleaned.length === 14) {
       return this.validateCNPJ(cleaned) ? cleaned : null;
     }
-    
+
     return null;
   }
 
   private validateCEP(value: any): string | null {
     if (!value) return null;
-    
+
     const cleaned = String(value).replace(/\D/g, '');
-    
+
     if (cleaned.length === 8) {
       return cleaned;
     }
-    
+
     return null;
   }
-
 
   private validateCNPJ(cnpj: string): boolean {
     if (cnpj.length !== 14) return false;
     if (/^(\d)\1+$/.test(cnpj)) return false;
-    
+
     const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
     const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-    
+
     let sum = 0;
     for (let i = 0; i < 12; i++) {
       sum += parseInt(cnpj.charAt(i)) * weights1[i];
@@ -178,7 +179,7 @@ export class FileProcessorService {
     let remainder = sum % 11;
     const digit1 = remainder < 2 ? 0 : 11 - remainder;
     if (digit1 !== parseInt(cnpj.charAt(12))) return false;
-    
+
     sum = 0;
     for (let i = 0; i < 13; i++) {
       sum += parseInt(cnpj.charAt(i)) * weights2[i];
@@ -186,27 +187,26 @@ export class FileProcessorService {
     remainder = sum % 11;
     const digit2 = remainder < 2 ? 0 : 11 - remainder;
     if (digit2 !== parseInt(cnpj.charAt(13))) return false;
-    
+
     return true;
   }
 
-
   private parseDate(value: any): string | null {
     if (!value) return null;
-    
+
     const dateStr = String(value).trim();
-    
+
     // ISO format: YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       return dateStr;
     }
-    
+
     // Brazilian format: DD/MM/YYYY
     if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
       const [day, month, year] = dateStr.split('/');
       return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
     }
-    
+
     return null;
   }
 }

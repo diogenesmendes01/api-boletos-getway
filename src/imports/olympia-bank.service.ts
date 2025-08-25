@@ -87,7 +87,7 @@ export class OlympiaBankService {
               'Content-Type': 'application/json',
             },
             timeout: 30000,
-          })
+          }),
         );
 
         const duration = Date.now() - startTime;
@@ -137,12 +137,15 @@ export class OlympiaBankService {
             const retryAfter = error.response.headers['retry-after'];
             if (retryAfter) {
               const newInterval = parseInt(retryAfter) * 1000;
-              this.loggerService.warn('Rate limit detected, adjusting interval', {
-                oldInterval: this.minRequestInterval,
-                newInterval,
-                retryAfter,
-                type: 'rate_limit_adjustment',
-              });
+              this.loggerService.warn(
+                'Rate limit detected, adjusting interval',
+                {
+                  oldInterval: this.minRequestInterval,
+                  newInterval,
+                  retryAfter,
+                  type: 'rate_limit_adjustment',
+                },
+              );
               this.minRequestInterval = newInterval;
             }
           }
@@ -164,14 +167,18 @@ export class OlympiaBankService {
           }
 
           throw new Error(
-            `OlympiaBank API error: ${error.response?.data?.message || error.message}`
+            `OlympiaBank API error: ${error.response?.data?.message || error.message}`,
           );
         }
 
-        this.loggerService.error('Unexpected error calling OlympiaBank API', error, {
-          duration,
-          type: 'external_api_unexpected_error',
-        });
+        this.loggerService.error(
+          'Unexpected error calling OlympiaBank API',
+          error,
+          {
+            duration,
+            type: 'external_api_unexpected_error',
+          },
+        );
 
         throw error;
       }
@@ -183,13 +190,13 @@ export class OlympiaBankService {
       this.requestQueue = this.requestQueue.then(async () => {
         const now = Date.now();
         const timeSinceLastRequest = now - this.lastRequestTime;
-        
+
         if (timeSinceLastRequest < this.minRequestInterval) {
           await this.delay(this.minRequestInterval - timeSinceLastRequest);
         }
-        
+
         this.lastRequestTime = Date.now();
-        
+
         try {
           const result = await fn();
           resolve(result);

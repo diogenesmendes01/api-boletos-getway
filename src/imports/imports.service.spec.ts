@@ -13,7 +13,7 @@ describe('ImportsService', () => {
   let service: ImportsService;
   let importRepository: Repository<Import>;
   let importRowRepository: Repository<ImportRow>;
-  let transactionRepository: Repository<Transaction>;
+  // let transactionRepository: Repository<Transaction>;
   let importQueue: Queue;
   let fileProcessorService: FileProcessorService;
 
@@ -71,11 +71,18 @@ describe('ImportsService', () => {
     }).compile();
 
     service = module.get<ImportsService>(ImportsService);
-    importRepository = module.get<Repository<Import>>(getRepositoryToken(Import));
-    importRowRepository = module.get<Repository<ImportRow>>(getRepositoryToken(ImportRow));
-    transactionRepository = module.get<Repository<Transaction>>(getRepositoryToken(Transaction));
+    importRepository = module.get<Repository<Import>>(
+      getRepositoryToken(Import),
+    );
+    importRowRepository = module.get<Repository<ImportRow>>(
+      getRepositoryToken(ImportRow),
+    );
+    transactionRepository = module.get<Repository<Transaction>>(
+      getRepositoryToken(Transaction),
+    );
     importQueue = module.get<Queue>(getQueueToken('import-queue'));
-    fileProcessorService = module.get<FileProcessorService>(FileProcessorService);
+    fileProcessorService =
+      module.get<FileProcessorService>(FileProcessorService);
   });
 
   afterEach(() => {
@@ -120,7 +127,10 @@ describe('ImportsService', () => {
       mockFileProcessorService.parseFile.mockResolvedValue(mockRows);
       mockImportRepository.create.mockReturnValue(mockImport);
       mockImportRepository.save.mockResolvedValue(mockImport);
-      mockImportRowRepository.create.mockImplementation((data) => ({ id: 'row-123', ...data }));
+      mockImportRowRepository.create.mockImplementation(data => ({
+        id: 'row-123',
+        ...data,
+      }));
       mockImportRowRepository.save.mockResolvedValue([]);
       mockQueue.add.mockResolvedValue({});
 
@@ -131,7 +141,9 @@ describe('ImportsService', () => {
         status: ImportStatus.QUEUED,
       });
 
-      expect(fileProcessorService.parseFile).toHaveBeenCalledWith('/tmp/test.csv');
+      expect(fileProcessorService.parseFile).toHaveBeenCalledWith(
+        '/tmp/test.csv',
+      );
       expect(importRepository.create).toHaveBeenCalledWith({
         ownerId: 'default',
         originalFilename: 'test.csv',
@@ -139,7 +151,9 @@ describe('ImportsService', () => {
         totalRows: 2,
         webhookUrl: undefined,
       });
-      expect(importQueue.add).toHaveBeenCalledWith('process-import', { importId: 'import-123' });
+      expect(importQueue.add).toHaveBeenCalledWith('process-import', {
+        importId: 'import-123',
+      });
     });
 
     it('should create import with webhook URL', async () => {
@@ -151,7 +165,10 @@ describe('ImportsService', () => {
       mockFileProcessorService.parseFile.mockResolvedValue(mockRows);
       mockImportRepository.create.mockReturnValue(mockImport);
       mockImportRepository.save.mockResolvedValue(mockImport);
-      mockImportRowRepository.create.mockImplementation((data) => ({ id: 'row-123', ...data }));
+      mockImportRowRepository.create.mockImplementation(data => ({
+        id: 'row-123',
+        ...data,
+      }));
       mockImportRowRepository.save.mockResolvedValue([]);
       mockQueue.add.mockResolvedValue({});
 
@@ -161,7 +178,7 @@ describe('ImportsService', () => {
       expect(importRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           webhookUrl,
-        })
+        }),
       );
     });
 
@@ -170,7 +187,7 @@ describe('ImportsService', () => {
       mockFileProcessorService.parseFile.mockResolvedValue(largeRowsArray);
 
       await expect(service.createImport(mockFile)).rejects.toThrow(
-        'File contains more than 2000 rows'
+        'File contains more than 2000 rows',
       );
     });
 
@@ -183,7 +200,10 @@ describe('ImportsService', () => {
       mockFileProcessorService.parseFile.mockResolvedValue(mockRows);
       mockImportRepository.create.mockReturnValue(mockImport);
       mockImportRepository.save.mockResolvedValue(mockImport);
-      mockImportRowRepository.create.mockImplementation((data) => ({ id: 'row-123', ...data }));
+      mockImportRowRepository.create.mockImplementation(data => ({
+        id: 'row-123',
+        ...data,
+      }));
       mockImportRowRepository.save.mockResolvedValue([]);
       mockQueue.add.mockResolvedValue({});
 
@@ -246,13 +266,17 @@ describe('ImportsService', () => {
         },
       });
 
-      expect(importRepository.findOne).toHaveBeenCalledWith({ where: { id: 'import-123' } });
+      expect(importRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'import-123' },
+      });
     });
 
     it('should throw NotFoundException when import not found', async () => {
       mockImportRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.getImportStatus('non-existent')).rejects.toThrow('Import not found');
+      await expect(service.getImportStatus('non-existent')).rejects.toThrow(
+        'Import not found',
+      );
     });
 
     it('should use default base URL when not configured', async () => {
@@ -274,8 +298,12 @@ describe('ImportsService', () => {
 
       const result = await service.getImportStatus('import-123');
 
-      expect(result.links.results).toBe('http://localhost:8080/v1/imports/import-123/results.csv');
-      expect(result.links.errors).toBe('http://localhost:8080/v1/imports/import-123/errors.csv');
+      expect(result.links.results).toBe(
+        'http://localhost:8080/v1/imports/import-123/results.csv',
+      );
+      expect(result.links.errors).toBe(
+        'http://localhost:8080/v1/imports/import-123/errors.csv',
+      );
     });
   });
 
@@ -310,9 +338,15 @@ describe('ImportsService', () => {
 
       const result = await service.generateResultsCsv('import-123');
 
-      expect(result).toContain('row_number,name,document,amount,boleto_url,boleto_code,transaction_id');
-      expect(result).toContain('1,João Silva,11144477735,15,https://boleto.com/1,BOL001,txn-001');
-      expect(result).toContain('2,Maria Santos,22255588844,20,https://boleto.com/2,BOL002,txn-002');
+      expect(result).toContain(
+        'row_number,name,document,amount,boleto_url,boleto_code,transaction_id',
+      );
+      expect(result).toContain(
+        '1,João Silva,11144477735,15,https://boleto.com/1,BOL001,txn-001',
+      );
+      expect(result).toContain(
+        '2,Maria Santos,22255588844,20,https://boleto.com/2,BOL002,txn-002',
+      );
 
       expect(importRowRepository.find).toHaveBeenCalledWith({
         where: { importId: 'import-123', status: RowStatus.SUCCESS },
@@ -364,9 +398,15 @@ describe('ImportsService', () => {
 
       const result = await service.generateErrorsCsv('import-123');
 
-      expect(result).toContain('row_number,name,document,amount,error_code,error_message');
-      expect(result).toContain('1,Invalid User,invalid-doc,15,VALIDATION_ERROR,Invalid document format');
-      expect(result).toContain('3,Network Error User,33366699977,25,NETWORK_ERROR,Failed to connect to OlympiaBank API');
+      expect(result).toContain(
+        'row_number,name,document,amount,error_code,error_message',
+      );
+      expect(result).toContain(
+        '1,Invalid User,invalid-doc,15,VALIDATION_ERROR,Invalid document format',
+      );
+      expect(result).toContain(
+        '3,Network Error User,33366699977,25,NETWORK_ERROR,Failed to connect to OlympiaBank API',
+      );
 
       expect(importRowRepository.find).toHaveBeenCalledWith({
         where: { importId: 'import-123', status: RowStatus.ERROR },
@@ -378,7 +418,9 @@ describe('ImportsService', () => {
 
       const result = await service.generateErrorsCsv('import-123');
 
-      expect(result).toContain('row_number,name,document,amount,error_code,error_message');
+      expect(result).toContain(
+        'row_number,name,document,amount,error_code,error_message',
+      );
     });
   });
 });

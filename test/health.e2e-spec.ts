@@ -7,7 +7,7 @@ import { Connection } from 'typeorm';
 
 describe('HealthController (e2e)', () => {
   let app: INestApplication;
-  let connection: Connection;
+  // let connection: Connection;
 
   const mockConnection = {
     query: jest.fn(),
@@ -23,7 +23,7 @@ describe('HealthController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('v1');
-    
+
     connection = moduleFixture.get<Connection>(getConnectionToken());
 
     await app.init();
@@ -54,11 +54,15 @@ describe('HealthController (e2e)', () => {
         },
       });
 
-      expect(response.body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+      expect(response.body.timestamp).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+      );
     });
 
     it('should return degraded status when database is down', async () => {
-      mockConnection.query.mockRejectedValue(new Error('Database connection failed'));
+      mockConnection.query.mockRejectedValue(
+        new Error('Database connection failed'),
+      );
 
       const response = await request(app.getHttpServer())
         .get('/v1/health')
